@@ -1,0 +1,13 @@
+# build outputs
+build/
+*.apk
+# signing material — never commit
+*.keystore
+*.jks
+# local / IDE
+local.properties
+.idea/
+*.iml
+.DS_Store
+# leftover icon-generation output (not a build input)
+assets/

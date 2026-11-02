@@ -15,7 +15,9 @@ import android.widget.TextView;
 /** Shared TV-friendly styling helpers. No external dependencies. */
 public class Ui {
     public static final int BG = 0xFF0E1B16;
+    public static final int BG_DEEP = 0xFF091410;
     public static final int CARD = 0xFF16261F;
+    public static final int CARD_HI = 0xFF1D3A2C;
     public static final int GOLD = 0xFFD4AF37;
     public static final int GOLD_BRIGHT = 0xFFFFD54F;
     public static final int TEXT = 0xFFFFFFFF;
@@ -62,14 +64,21 @@ public class Ui {
      * base background and original text colors.
      */
     public static void strongFocus(final View v, final Drawable baseBg, final TextView... texts) {
+        strongFocus(v, baseBg, null, texts);
+    }
+
+    /** Same, with a callback fired when the view gains focus (for focus bookkeeping). */
+    public static void strongFocus(final View v, final Drawable baseBg, final Runnable onFocused,
+                                   final TextView... texts) {
         final int[] orig = new int[texts.length];
         for (int i = 0; i < texts.length; i++) orig[i] = texts[i].getCurrentTextColor();
         v.setFocusable(true);
         v.setOnFocusChangeListener((view, has) -> {
             Context c = view.getContext();
             if (has) {
-                view.setScaleX(1.06f);
-                view.setScaleY(1.06f);
+                if (onFocused != null) onFocused.run();
+                view.setScaleX(1.03f);
+                view.setScaleY(1.03f);
                 view.setBackground(roundBgStroke(GOLD_BRIGHT, 0xFFFFFFFF, dp(c, 4), dp(c, 16)));
                 for (TextView t : texts) t.setTextColor(DARK_TEXT);
                 view.setElevation(dp(c, 8));

@@ -1,9 +1,12 @@
 package com.leo.salah;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
@@ -12,108 +15,314 @@ import android.provider.Settings;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.time.ZoneId;
+import java.util.Locale;
 import java.util.function.IntSupplier;
 
 /**
- * Settings with one-dimensional navigation:
- * EVERY row is a single focusable. Up/Down moves between rows,
- * OK selects, Left/Right changes a value. No nested buttons, and
- * changing a value never rebuilds the list, so focus is never lost.
+ * Two-pane Salatona settings.
+ *
+ * <p>The start side is a rail of six sections; the end side holds the rows for
+ * the open section. Up/Down move through the rail, OK (or Right) opens a
+ * section, Back returns to the rail. Inside a section every row is a single
+ * focusable: Left/Right change a value in place, so focus is never lost.
  */
 public class SettingsActivity extends Activity {
 
     private static final int REQ_AUDIO = 101;
-    private LinearLayout list;
+    private static final int REQ_NOTIFICATIONS = 102;
+
+    private static final int CAT_PRAYER = 0, CAT_ATHAN = 1, CAT_TOOLS = 2,
+            CAT_DISPLAY = 3, CAT_SYSTEM = 4, CAT_ABOUT = 5;
+
+    private static final String[] CAT_LABELS = {
+            "Prayer times", "Athan", "Tools", "Display", "System", "About"};
+    private static final String[] CAT_ICONS = {"🕌", "🔊", "🧰", "📺", "🛠", "ℹ"};
+    private static final String[] CAT_SUBS = {
+            "Location, calculation and daylight saving",
+            "Voice, volume and prayer alerts",
+            "Qibla, duas and the Hijri calendar",
+            "Screen saver and ambient clock",
+            "Permissions and alarm reliability",
+            "Version, time zone and privacy"};
+
     private Prefs p;
-    private int voiceBeforePicker = 0;
+    private int category = CAT_PRAYER;
+    private boolean onRail = true;
+    private int voiceBeforePicker;
+
+    private final LinearLayout[] navRows = new LinearLayout[CAT_LABELS.length];
+    private final TextView[] navIcons = new TextView[CAT_LABELS.length];
+    private final TextView[] navNames = new TextView[CAT_LABELS.length];
+
+    private TextView sectionTitle, sectionSub;
+    private LinearLayout list;
     private View firstFocusable;
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         p = new Prefs(this);
-        ScrollView sv = new ScrollView(this);
+
         LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        int pad = Ui.dp(this, 32);
-        root.setPadding(pad, Ui.dp(this, 24), pad, pad);
+        root.setOrientation(LinearLayout.HORIZONTAL);
         root.setBackgroundColor(Ui.BG);
-        sv.addView(root, new ScrollView.LayoutParams(
-                ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
+        root.addView(buildRail(), new LinearLayout.LayoutParams(
+                Ui.dp(this, 300), ViewGroup.LayoutParams.MATCH_PARENT));
+        root.addView(buildContent(), new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+        setContentView(root);
 
-        TextView title = Ui.label(this, "⚙ Settings", 34, Ui.TEXT);
-        title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
-        root.addView(title);
-
-        TextView help = Ui.label(this,
-                "Up / Down: move between rows · OK: select · Left / Right: change a value · Back: exit",
-                16, Ui.DIM);
-        Ui.margin(help, 0, Ui.dp(this, 8), 0, 0);
-        root.addView(help);
-
-        list = new LinearLayout(this);
-        list.setOrientation(LinearLayout.VERTICAL);
-        Ui.margin(list, 0, Ui.dp(this, 16), 0, 0);
-        root.addView(list);
-        setContentView(sv);
+        rebuildContent();
+        paintNavs();
+        navRows[category].post(() -> navRows[category].requestFocus());
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        rebuild();
+        p = new Prefs(this);
+        rebuildContent();
+        paintNavs();
+        navRows[category].post(() -> {
+            if (onRail) navRows[category].requestFocus();
+            else if (firstFocusable != null) firstFocusable.requestFocus();
+        });
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (!onRail) {
+            onRail = true;
+            navRows[category].requestFocus();
+            return;
+        }
+        super.onBackPressed();
+    }
+
+    // ---------------------------------------------------------------- layout
+
+    private LinearLayout buildRail() {
+        LinearLayout rail = new LinearLayout(this);
+        rail.setOrientation(LinearLayout.VERTICAL);
+        rail.setBackgroundColor(Ui.BG_DEEP);
+        rail.setPadding(Ui.dp(this, 18), Ui.dp(this, 22),
+                Ui.dp(this, 18), Ui.dp(this, 16));
+
+        LinearLayout head = Ui.hrow(this);
+        TextView gear = Ui.label(this, "⚙", 24, Ui.GOLD);
+        head.addView(gear);
+        TextView title = Ui.label(this, "Settings", 25, Ui.TEXT);
+        title.setTypeface(title.getTypeface(), Typeface.BOLD);
+        Ui.margin(title, Ui.dp(this, 8), 0, 0, 0);
+        head.addView(title);
+        rail.addView(head);
+
+        TextView version = Ui.label(this, "Salatona " + versionName(), 12, Ui.DIM);
+        Ui.margin(version, Ui.dp(this, 2), Ui.dp(this, 2), 0, 0);
+        rail.addView(version);
+
+        View gap = new View(this);
+        rail.addView(gap, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(this, 14)));
+
+        for (int i = 0; i < CAT_LABELS.length; i++) rail.addView(buildNav(i));
+
+        View spacer = new View(this);
+        rail.addView(spacer, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        TextView hint = Ui.label(this, "↑ ↓  choose section\nOK  open  ·  Back  return", 12, Ui.DIM);
+        hint.setLineSpacing(Ui.dp(this, 2), 1f);
+        rail.addView(hint);
+        return rail;
+    }
+
+    private LinearLayout buildNav(int i) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setFocusable(true);
+        row.setPadding(Ui.dp(this, 14), Ui.dp(this, 12),
+                Ui.dp(this, 12), Ui.dp(this, 12));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(this, 52));
+        lp.setMargins(0, 0, 0, Ui.dp(this, 6));
+        row.setLayoutParams(lp);
+
+        TextView icon = Ui.label(this, CAT_ICONS[i], 20, Ui.DIM);
+        icon.setGravity(Gravity.CENTER);
+        icon.setMinWidth(Ui.dp(this, 30));
+        row.addView(icon);
+
+        TextView name = Ui.label(this, CAT_LABELS[i], 18, Ui.TEXT);
+        Ui.margin(name, Ui.dp(this, 10), 0, 0, 0);
+        row.addView(name);
+
+        navRows[i] = row;
+        navIcons[i] = icon;
+        navNames[i] = name;
+
+        row.setOnClickListener(v -> openCategory(i));
+        row.setOnKeyListener((v, keyCode, e) -> {
+            if (e.getAction() == KeyEvent.ACTION_DOWN
+                    && keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                openCategory(i);
+                return true;
+            }
+            return false;
+        });
+        row.setOnFocusChangeListener((v, has) -> {
+            if (has) {
+                onRail = true;
+                v.setScaleX(1.03f);
+                v.setScaleY(1.03f);
+                v.setElevation(Ui.dp(this, 6));
+                v.setBackground(Ui.roundBgStroke(Ui.GOLD_BRIGHT, 0xFFFFFFFF,
+                        Ui.dp(this, 3), Ui.dp(this, 14)));
+                icon.setTextColor(Ui.DARK_TEXT);
+                name.setTextColor(Ui.DARK_TEXT);
+            } else {
+                v.setScaleX(1f);
+                v.setScaleY(1f);
+                v.setElevation(0);
+                paintNav(i);
+            }
+        });
+        return row;
+    }
+
+    private LinearLayout buildContent() {
+        LinearLayout pane = new LinearLayout(this);
+        pane.setOrientation(LinearLayout.VERTICAL);
+        pane.setPadding(Ui.dp(this, 28), Ui.dp(this, 22),
+                Ui.dp(this, 30), Ui.dp(this, 14));
+
+        sectionTitle = Ui.label(this, "", 26, Ui.TEXT);
+        sectionTitle.setTypeface(sectionTitle.getTypeface(), Typeface.BOLD);
+        pane.addView(sectionTitle);
+
+        sectionSub = Ui.label(this, "", 14, Ui.DIM);
+        Ui.margin(sectionSub, 0, Ui.dp(this, 3), 0, 0);
+        pane.addView(sectionSub);
+
+        View rule = new View(this);
+        rule.setBackgroundColor(Ui.GOLD);
+        LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
+                Ui.dp(this, 52), Ui.dp(this, 2));
+        rlp.setMargins(0, Ui.dp(this, 10), 0, Ui.dp(this, 4));
+        pane.addView(rule, rlp);
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFocusable(false);
+        scroll.setVerticalScrollBarEnabled(false);
+        list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setPadding(0, 0, 0, Ui.dp(this, 24));
+        scroll.addView(list, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        pane.addView(scroll, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        TextView hint = Ui.label(this,
+                "‹ › change  ·  OK select  ·  Back to sections", 12, Ui.DIM);
+        hint.setGravity(Gravity.END);
+        pane.addView(hint);
+        return pane;
+    }
+
+    // ---------------------------------------------------------------- sections
+
+    private void openCategory(int i) {
+        boolean changed = i != category;
+        category = i;
+        if (changed) rebuildContent();
+        paintNavs();
         if (firstFocusable != null) {
+            onRail = false;
             firstFocusable.post(() -> firstFocusable.requestFocus());
+        } else {
+            onRail = true;
+            navRows[i].requestFocus();
         }
     }
 
-    private void rebuild() {
+    private void paintNavs() {
+        for (int i = 0; i < navRows.length; i++) paintNav(i);
+    }
+
+    private void paintNav(int i) {
+        boolean selected = i == category;
+        navRows[i].setBackground(selected
+                ? Ui.roundBgStroke(Ui.CARD, Ui.GOLD, Ui.dp(this, 2), Ui.dp(this, 14))
+                : Ui.roundBg(0x00000000, Ui.dp(this, 14)));
+        navIcons[i].setTextColor(selected ? Ui.GOLD_BRIGHT : Ui.DIM);
+        navNames[i].setTextColor(selected ? Ui.GOLD_BRIGHT : 0xFFE0E0E0);
+    }
+
+    private void rebuildContent() {
+        p = new Prefs(this);
         list.removeAllViews();
         firstFocusable = null;
-        p = new Prefs(this);
+        sectionTitle.setText(CAT_ICONS[category] + "  " + CAT_LABELS[category]);
+        sectionSub.setText(CAT_SUBS[category]);
 
-        section("Tools");
+        switch (category) {
+            case CAT_PRAYER: buildPrayer(); break;
+            case CAT_ATHAN: buildAthan(); break;
+            case CAT_TOOLS: buildTools(); break;
+            case CAT_DISPLAY: buildDisplay(); break;
+            case CAT_SYSTEM: buildSystem(); break;
+            default: buildAbout(); break;
+        }
+    }
+
+    private void buildPrayer() {
+        sub("LOCATION");
         navRow("📍 City", p.cityName() + ", " + p.cityCountry(),
                 v -> startActivity(new Intent(this, CityPickerActivity.class)));
-        navRow("🧭 Qibla compass", "find prayer direction",
-                v -> startActivity(new Intent(this, QiblaActivity.class)));
-        navRow("🤲 Duas", "after prayer · morning · night",
-                v -> startActivity(new Intent(this, DuasActivity.class)));
-        navRow("📅 Islamic events", "upcoming & past, countdown in days",
-                v -> startActivity(new Intent(this, EventsActivity.class)));
-        navRow("📆 Monthly timetable", "full month of prayer times",
-                v -> startActivity(new Intent(this, TimetableActivity.class)));
 
-        section("Background & alarms");
-        navRow("🔋 Keep alarms alive in background", "set Salatona to Unrestricted",
-                v -> {
-                    try {
-                        startActivity(new Intent(
-                                Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
-                    } catch (Exception e) {
-                        try {
-                            startActivity(new Intent(Settings.ACTION_SETTINGS));
-                        } catch (Exception ignored) {}
-                    }
-                });
-
-        section("Location & calculation");
+        sub("CALCULATION");
         cycleRow("Calculation method", PrayerTimes.METHOD_NAMES,
                 p::method, v -> { p.setMethod(v); reschedule(); });
         cycleRow("Asr time", new String[]{"Shafi'i · Maliki · Hanbali", "Hanafi"},
                 p::asr, v -> { p.setAsr(v); reschedule(); });
+
+        final TextView dstNote = noteView("");
+        cycleRow("Daylight saving", Daylight.MODE_NAMES, p::dstMode, v -> {
+            p.setDstMode(v);
+            dstNote.setText(Daylight.status(this));
+            reschedule();
+        });
+        list.addView(dstNote);
+        dstNote.setText(Daylight.status(this));
+        list.addView(noteView("Auto follows the TV's zone and changes at the official "
+                + "transition. On/Off shift every prayer by one hour when the TV clock "
+                + "and your country disagree."));
+
         navRow("Fine-tune prayer times", "± minutes per prayer",
                 v -> startActivity(new Intent(this, AdjustActivity.class)));
 
-        section("Athan");
+        sub("CALENDAR");
+        navRow("📆 Monthly timetable", "full month of prayer times",
+                v -> startActivity(new Intent(this, TimetableActivity.class)));
+    }
+
+    private void buildAthan() {
+        sub("VOICE & VOLUME");
         cycleRow("Athan voice", Prefs.VOICE_NAMES, p::voice, v -> {
-            if (v == 4) { voiceBeforePicker = p.voice(); pickAudioFile(); }
-            else p.setVoice(v);
+            if (v == 4) {
+                voiceBeforePicker = p.voice();
+                pickAudioFile();
+            } else {
+                p.setVoice(v);
+            }
         });
         actionRow("🔊 Test athan", v -> {
             Intent svc = new Intent(this, AthanOverlayService.class);
@@ -130,19 +339,18 @@ public class SettingsActivity extends Activity {
         adjustRow("Athan volume", 0, 100, 5, p::athanVol,
                 v -> v + "%", v -> p.setAthanVol(v));
         switchRow("🔊 Athan fade-in", p::fadeIn, p::setFadeIn);
+
+        sub("PRAYERS");
         for (int i = 0; i < 5; i++) {
             final int pi = i;
             switchRow("Athan for " + PrayerCalc.NAMES[i], () -> p.athanOn(pi),
                     on -> { p.setAthanOn(pi, on); reschedule(); });
-        }
-        for (int i = 0; i < 5; i++) {
-            final int pi = i;
             cycleRow("🎙 " + PrayerCalc.NAMES[i] + " voice", Prefs.PRAYER_VOICE_OPTS,
                     () -> Prefs.prayerVoiceOpt(p.prayerVoice(pi)),
                     v -> p.setPrayerVoice(pi, Prefs.prayerVoiceStored(v)));
         }
 
-        section("Behavior");
+        sub("ALERTS");
         cycleRow("Remind before athan",
                 new String[]{"Off", "5 min before", "10 min before", "15 min before", "30 min before"},
                 () -> idxOf(new int[]{0, 5, 10, 15, 30}, p.preMin()),
@@ -155,8 +363,22 @@ public class SettingsActivity extends Activity {
                 p::overlayStyle, v -> p.setOverlayStyle(v));
         switchRow("🌙 Taraweeh reminder (in Ramadan)", p::taraweeh,
                 v -> { p.setTaraweeh(v); reschedule(); });
+    }
 
-        section("Screen saver");
+    private void buildTools() {
+        sub("DIRECTION");
+        navRow("🧭 Qibla compass", "bearing from your city",
+                v -> startActivity(new Intent(this, QiblaActivity.class)));
+        sub("SUPPLICATIONS");
+        navRow("🤲 Duas", "after prayer · morning · night",
+                v -> startActivity(new Intent(this, DuasActivity.class)));
+        sub("HIJRI CALENDAR");
+        navRow("📅 Islamic events", "upcoming & past, countdown in days",
+                v -> startActivity(new Intent(this, EventsActivity.class)));
+    }
+
+    private void buildDisplay() {
+        sub("AMBIENT");
         navRow("▶ Ambient display", "prayer clock that keeps the screen on",
                 v -> startActivity(new Intent(this, AmbientActivity.class)));
         navRow("Set Salatona as screen saver", "system screen-saver settings",
@@ -169,17 +391,51 @@ public class SettingsActivity extends Activity {
                                 Toast.LENGTH_LONG).show();
                     }
                 });
-        TextView dreamNote = Ui.label(this,
-                "Google TV (Android 12+) hides third-party screensavers from Settings → "
-                        + "System → Ambient mode — “Ambient display” above is the easy way: "
-                        + "open it and the prayer clock stays on until you press any button. "
-                        + "To make it fully automatic on idle, set it once via ADB: "
-                        + "settings put secure screensaver_components com.leo.salah/.SalahDream",
-                16, Ui.DIM);
-        Ui.margin(dreamNote, Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 4));
-        list.addView(dreamNote);
+        String ss = null;
+        try {
+            ss = Settings.Secure.getString(getContentResolver(), "screensaver_components");
+        } catch (Exception ignored) {}
+        note("System screen saver: " + (ss != null && ss.contains(getPackageName())
+                ? "Salatona ✓" : "another app"));
 
-        section("Permissions");
+        sub("GOOGLE TV");
+        note("Google TV hides third-party screen savers from Settings → System → "
+                + "Ambient mode. “Ambient display” above keeps the prayer clock on until any "
+                + "button is pressed. To make it automatic on idle, set it once via ADB:\n"
+                + "settings put secure screensaver_components com.leo.salah/.SalahDream");
+    }
+
+    private void buildSystem() {
+        sub("RELIABILITY");
+        boolean ignoring = false;
+        try {
+            android.os.PowerManager pm =
+                    (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
+            ignoring = pm != null && pm.isIgnoringBatteryOptimizations(getPackageName());
+        } catch (Exception ignored) {}
+        stateRow("🔋 Battery", ignoring, "✓ Unrestricted", "✗ Restricted ›",
+                v -> {
+                    try {
+                        startActivity(new Intent(
+                                Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
+                    } catch (Exception e) {
+                        try {
+                            startActivity(new Intent(Settings.ACTION_SETTINGS));
+                        } catch (Exception ignored) {}
+                    }
+                });
+        actionRow("⏰ Reschedule athan alarms", v -> {
+            try {
+                AthanScheduler.scheduleAll(this);
+                Toast.makeText(this, "Athan alarms rescheduled ✓", Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                Toast.makeText(this, "Could not reschedule", Toast.LENGTH_SHORT).show();
+            }
+        });
+        note("Alarms scheduled for " + (p.scheduledDay().isEmpty() ? "—" : p.scheduledDay())
+                + ". Salatona refreshes them in the background every day.");
+
+        sub("PERMISSIONS");
         permRow("Display over other apps", Settings.canDrawOverlays(this),
                 v -> startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                         Uri.parse("package:" + getPackageName()))));
@@ -195,88 +451,76 @@ public class SettingsActivity extends Activity {
                 } catch (Exception ignored) {}
             });
         }
-
-        section("About");
-        TextView about = Ui.label(this,
-                "Salatona 1.26\nPrayer times are computed on-device — no internet needed.\n"
-                        + "Athan voices play over any app via a dismissible overlay.\n"
-                        + "Set it as your TV screen saver for an always-on prayer display.",
-                16, Ui.DIM);
-        Ui.margin(about, Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 32));
-        list.addView(about);
-    }
-
-    private int idxOf(int[] arr, int val) {
-        for (int i = 0; i < arr.length; i++) if (arr[i] == val) return i;
-        return 0;
-    }
-
-    private void reschedule() {
-        try { AthanScheduler.scheduleAll(this); } catch (Exception ignored) {}
-    }
-
-    private void pickAudioFile() {
-        try {
-            Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-            i.addCategory(Intent.CATEGORY_OPENABLE);
-            i.setType("audio/*");
-            startActivityForResult(i, REQ_AUDIO);
-        } catch (Exception e) {
-            p.setVoice(voiceBeforePicker);
-            Toast.makeText(this, "No file picker on this device", Toast.LENGTH_SHORT).show();
-            rebuild();
+        if (Build.VERSION.SDK_INT >= 33) {
+            permRow("Notifications", notificationsGranted(),
+                    v -> requestPermissions(
+                            new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                            REQ_NOTIFICATIONS));
         }
+        note("The athan overlay needs “Display over other apps”. Exact alarms and "
+                + "notifications keep it on time on Android 12 and newer TVs.");
     }
 
-    @Override
-    protected void onActivityResult(int req, int res, Intent data) {
-        super.onActivityResult(req, res, data);
-        if (req == REQ_AUDIO) {
-            if (res == RESULT_OK && data != null && data.getData() != null) {
-                try {
-                    Uri uri = data.getData();
-                    getContentResolver().takePersistableUriPermission(uri,
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    p.setCustomUri(uri.toString());
-                    p.setVoice(3);
-                    Toast.makeText(this, "Custom athan set ✓", Toast.LENGTH_SHORT).show();
-                } catch (Exception e) {
-                    p.setVoice(voiceBeforePicker);
-                    Toast.makeText(this, "Could not use that file", Toast.LENGTH_SHORT).show();
-                }
-            } else {
-                p.setVoice(voiceBeforePicker);
-            }
-            rebuild();
-        }
+    private void buildAbout() {
+        sub("SALATONA");
+        list.addView(noteView("Version " + versionName() + "\n"
+                + "On-device prayer times with a full-day timeline, athan overlay, "
+                + "timetable, Qibla, duas and a Ramadan card.\n"
+                + "No accounts, no ads, no analytics."));
+
+        sub("TIME ZONE");
+        list.addView(noteView("TV zone: " + ZoneId.systemDefault().getId() + "\n"
+                + Daylight.status(this)));
+
+        sub("PRIVACY");
+        list.addView(noteView("Your city and settings stay on this TV. Weather is the "
+                + "only network request; prayer times never need the internet."));
+
+        actionRow("Close settings", v -> finish());
     }
 
-    // ---------- row builders: one focusable per row, values update in place ----------
+    // ---------------------------------------------------------------- rows
 
-    private void section(String s) {
-        TextView t = Ui.label(this, s, 20, Ui.GOLD);
-        t.setTypeface(t.getTypeface(), android.graphics.Typeface.BOLD);
-        Ui.margin(t, Ui.dp(this, 4), Ui.dp(this, 20), Ui.dp(this, 4), Ui.dp(this, 4));
+    private void sub(String s) {
+        TextView t = Ui.label(this, s.toUpperCase(Locale.US), 12, Ui.GOLD);
+        t.setLetterSpacing(0.1f);
+        t.setTypeface(t.getTypeface(), Typeface.BOLD);
+        Ui.margin(t, Ui.dp(this, 4), Ui.dp(this, 16), Ui.dp(this, 4), Ui.dp(this, 6));
         list.addView(t);
     }
 
+    private TextView noteView(String s) {
+        TextView t = Ui.label(this, s, 13, Ui.DIM);
+        t.setLineSpacing(Ui.dp(this, 2), 1f);
+        Ui.margin(t, Ui.dp(this, 4), Ui.dp(this, 2), Ui.dp(this, 10), Ui.dp(this, 10));
+        return t;
+    }
+
+    private void note(String s) { list.addView(noteView(s)); }
+
     private Drawable rowBg() {
-        return Ui.roundBg(Ui.CARD, Ui.dp(this, 18));
+        return Ui.roundBg(Ui.CARD, Ui.dp(this, 16));
     }
 
     /** Base row: exactly one focusable per row, gold highlight, tracked for initial focus. */
     private LinearLayout baseRow(TextView... texts) {
         LinearLayout row = Ui.card(this);
-        row.setPadding(Ui.dp(this, 20), Ui.dp(this, 14), Ui.dp(this, 20), Ui.dp(this, 14));
+        row.setPadding(Ui.dp(this, 18), Ui.dp(this, 13),
+                Ui.dp(this, 18), Ui.dp(this, 13));
+        row.setBackground(rowBg());
+        // width must be set before Ui.margin(), which otherwise defaults to WRAP_CONTENT
+        row.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
         Ui.margin(row, 0, 0, 0, Ui.dp(this, 8));
-        Ui.strongFocus(row, rowBg(), texts);
+        Ui.strongFocus(row, rowBg(), () -> onRail = false, texts);
         if (firstFocusable == null) firstFocusable = row;
         list.addView(row);
         return row;
     }
 
     private TextView rowLabel(String s) {
-        TextView t = Ui.label(this, s, 20, Ui.TEXT);
+        TextView t = Ui.label(this, s, 18, Ui.TEXT);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1);
         t.setLayoutParams(lp);
@@ -285,9 +529,10 @@ public class SettingsActivity extends Activity {
 
     /** Right-side value pill, gold, with ‹ › affordance for adjustable rows. */
     private TextView rowValue() {
-        TextView v = Ui.label(this, "", 18, Ui.GOLD_BRIGHT);
+        TextView v = Ui.label(this, "", 16, Ui.GOLD_BRIGHT);
         v.setGravity(Gravity.END);
-        v.setMinWidth(Ui.dp(this, 120));
+        v.setMinWidth(Ui.dp(this, 96));
+        v.setMaxLines(2);
         return v;
     }
 
@@ -297,6 +542,7 @@ public class SettingsActivity extends Activity {
         inner.addView(lab);
         TextView v = rowValue();
         v.setTextColor(Ui.DIM);
+        v.setTextSize(14);
         v.setText(value + "  ›");
         inner.addView(v);
         LinearLayout row = baseRow(lab, v);
@@ -416,15 +662,99 @@ public class SettingsActivity extends Activity {
     }
 
     private void permRow(String label, boolean granted, View.OnClickListener onFix) {
+        stateRow(label, granted, "✓ Granted", "✗ Grant ›", onFix);
+    }
+
+    private void stateRow(String label, boolean ok, String okText, String badText,
+                          View.OnClickListener onFix) {
         LinearLayout inner = Ui.hrow(this);
         TextView lab = rowLabel(label);
         inner.addView(lab);
         TextView v = rowValue();
-        v.setText(granted ? "✓ Granted" : "✗ Grant ›");
-        v.setTextColor(granted ? Ui.GREEN : Ui.GOLD_BRIGHT);
+        v.setTextSize(14);
+        v.setText(ok ? okText : badText);
+        v.setTextColor(ok ? Ui.GREEN : Ui.GOLD_BRIGHT);
         inner.addView(v);
         LinearLayout row = baseRow(lab, v);
         row.addView(inner);
-        if (!granted) row.setOnClickListener(onFix);
+        row.setOnClickListener(vv -> {
+            if (!ok) onFix.onClick(vv);
+        });
+    }
+
+    // ---------------------------------------------------------------- actions
+
+    private int idxOf(int[] arr, int val) {
+        for (int i = 0; i < arr.length; i++) if (arr[i] == val) return i;
+        return 0;
+    }
+
+    private void reschedule() {
+        try { AthanScheduler.scheduleAll(this); } catch (Exception ignored) {}
+    }
+
+    private boolean notificationsGranted() {
+        if (Build.VERSION.SDK_INT < 33) return true;
+        return checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private String versionName() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception e) {
+            return "1.27";
+        }
+    }
+
+    private void pickAudioFile() {
+        try {
+            Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            i.addCategory(Intent.CATEGORY_OPENABLE);
+            i.setType("audio/*");
+            startActivityForResult(i, REQ_AUDIO);
+        } catch (Exception e) {
+            p.setVoice(voiceBeforePicker);
+            Toast.makeText(this, "No file picker on this device", Toast.LENGTH_SHORT).show();
+            rebuildContent();
+            if (firstFocusable != null) firstFocusable.post(firstFocusable::requestFocus);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req == REQ_AUDIO) {
+            if (res == RESULT_OK && data != null && data.getData() != null) {
+                try {
+                    Uri uri = data.getData();
+                    getContentResolver().takePersistableUriPermission(uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    p.setCustomUri(uri.toString());
+                    p.setVoice(4);
+                    Toast.makeText(this, "Custom athan set ✓", Toast.LENGTH_SHORT).show();
+                } catch (Exception e) {
+                    p.setVoice(voiceBeforePicker);
+                    Toast.makeText(this, "Could not use that file", Toast.LENGTH_SHORT).show();
+                }
+            } else {
+                p.setVoice(voiceBeforePicker);
+            }
+            rebuildContent();
+            if (firstFocusable != null) firstFocusable.post(firstFocusable::requestFocus);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int req, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(req, permissions, results);
+        if (req == REQ_NOTIFICATIONS) {
+            boolean ok = results.length > 0
+                    && results[0] == PackageManager.PERMISSION_GRANTED;
+            Toast.makeText(this, ok ? "Notifications allowed ✓"
+                    : "Notifications stay blocked", Toast.LENGTH_SHORT).show();
+            rebuildContent();
+            if (firstFocusable != null) firstFocusable.post(firstFocusable::requestFocus);
+        }
     }
 }

@@ -128,7 +128,8 @@ public class MainActivity extends Activity {
             }
         }
         if (w != null) {
-            Ui.margin(w, 0, 0, 0, Ui.dp(this, 10));
+            // leave room for the gear in the corner, and keep the card full width
+            Ui.margin(w, Ui.dp(this, 92), 0, 0, Ui.dp(this, 10));
             warnBox.addView(w);
         }
     }
@@ -138,6 +139,10 @@ public class MainActivity extends Activity {
         w.setOrientation(LinearLayout.HORIZONTAL);
         w.setGravity(Gravity.CENTER_VERTICAL);
         w.setBackground(Ui.roundBg(0xCC3D2B12, Ui.dp(this, 14)));
+        // set width before Ui.margin(), otherwise the margin helper falls back to WRAP_CONTENT
+        w.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
         int p = Ui.dp(this, 12);
         w.setPadding(Ui.dp(this, 20), p, Ui.dp(this, 20), p);
         TextView t = Ui.label(this, text, 17, 0xFFFFE082);

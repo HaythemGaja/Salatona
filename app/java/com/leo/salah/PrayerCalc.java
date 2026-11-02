@@ -2,10 +2,13 @@ package com.leo.salah;
 
 import android.content.Context;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.chrono.HijrahDate;
 import java.time.temporal.ChronoField;
 import java.util.Calendar;
-import java.util.TimeZone;
 
 /** Prayer-time helpers: today's times, next prayer, formatting, qibla, Hijri date. */
 public class PrayerCalc {
@@ -22,17 +25,42 @@ public class PrayerCalc {
     /** times[] = {fajr, sunrise, dhuhr, asr, maghrib, isha, sunset} as fractional hours. */
     public static double[] timesFor(Context ctx, int year, int month, int day) {
         Prefs p = new Prefs(ctx);
-        Calendar cal = Calendar.getInstance();
-        cal.set(year, month - 1, day, 12, 0, 0);
-        double tz = TimeZone.getDefault().getOffset(cal.getTimeInMillis()) / 3600000.0;
-        return PrayerTimes.getTimes(year, month, day, p.lat(), p.lng(), tz,
+        return timesFor(p, year, month, day, ZoneId.systemDefault());
+    }
+
+    /**
+     * Times for one day, converted to local wall-clock hours with the UTC offset
+     * that is in force at each prayer's own instant. This is what makes the TV's
+     * daylight-saving rules — and the manual override in Settings — apply to the
+     * whole day, including a transition that falls inside it.
+     */
+    static double[] timesFor(Prefs p, int year, int month, int day, ZoneId zone) {
+        double[] utc = PrayerTimes.getTimes(year, month, day, p.lat(), p.lng(), 0,
                 p.method(), p.asr(), p.tuneArray());
+        return toLocal(utc, year, month, day, p.dstMode(), zone);
+    }
+
+    /**
+     * Pure conversion from solar times in UTC hours to local hours. Public and
+     * Android-free so it can be exercised by the headless tests.
+     */
+    public static double[] toLocal(double[] utc, int year, int month, int day,
+                                   int dstMode, ZoneId zone) {
+        Instant dayStart = LocalDate.of(year, month, day).atStartOfDay(ZoneOffset.UTC).toInstant();
+        double[] local = new double[utc.length];
+        for (int i = 0; i < utc.length; i++) {
+            Instant at = dayStart.plusSeconds(Math.round(utc[i] * 3600.0));
+            double h = utc[i] + Daylight.offsetHours(dstMode, at, zone);
+            local[i] = ((h % 24) + 24) % 24;
+        }
+        return local;
     }
 
     public static long toMillis(double hour, Calendar day) {
         Calendar c = (Calendar) day.clone();
-        int h = (int) hour;
-        int m = (int) Math.round((hour - h) * 60);
+        double h24 = ((hour % 24) + 24) % 24;
+        int h = (int) h24;
+        int m = (int) Math.round((h24 - h) * 60);
         if (m == 60) { h++; m = 0; }
         c.set(Calendar.HOUR_OF_DAY, h % 24);
         c.set(Calendar.MINUTE, m);

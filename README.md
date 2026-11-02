@@ -8,7 +8,32 @@ compass, tasbih counter, post-prayer duas, and a Ramadan Suhoor/Iftar card.
 - Package: `com.leo.salah` (upgrades existing installs in place)
 - Prayer times: on-device PrayTimes engine (no API key)
 - Weather: Open-Meteo hourly forecast (free, no API key)
-- Current release: v1.26 (versionCode 27)
+- Current release: v1.27 (versionCode 28)
+
+## Daylight saving
+
+Prayer times are converted to the TV's local clock using the time-zone rules
+in force **at each prayer's own instant**, so a transition that falls inside
+the day is handled correctly. Settings → Prayer times → *Daylight saving*
+adds the manual control some TVs need:
+
+- **Auto** (default) — follow the TV's time zone and its DST rules.
+- **On · +1 hour** — add an hour (TV stuck on winter time, or a fixed zone).
+- **Off · −1 hour** — subtract an hour (TV that switched early, or is fixed
+  an hour ahead).
+
+The row shows the live zone and offset (`America/New_York · daylight saving
+active · UTC−4`) so the result is easy to check. Every change reschedules the
+athan alarms immediately. The conversion lives in `PrayerCalc.toLocal()` and
+has headless checks in `test/`.
+
+## Settings
+
+Settings is a two-pane TV screen: a section rail (Prayer times, Athan, Tools,
+Display, System, About) on the start side, and the open section's rows on the
+end side. Up/Down move through the rail, OK or Right opens a section, Back
+returns to it. Within a section, Left/Right change a value in place, so focus
+is never rebuilt or lost.
 
 ## Timeline
 
@@ -38,6 +63,23 @@ Then:
 bash build-apk.sh   # writes build/out/LeoSalah.apk
 ```
 
+The SDK/JDK/keystore locations can also be set with `JAVA_HOME`,
+`BUILD_TOOLS`, `ANDROID_JAR` and `KEYSTORE`, which is handy when the repo is
+built outside that exact directory layout.
+
 The debug keystore is not part of this repo. For a release build that
 updates the existing install without losing data, sign with the release
 key instead — never embed a keystore in the app or the repo.
+
+## Tests
+
+```sh
+ANDROID_SDK_ROOT=../sdk bash test/run-dst-test.sh
+```
+
+Runs 55 headless checks (winter/summer/transition days in New York, a
+half-hour zone, and the `toMillis` wall-clock round-trip). No device needed;
+`android.jar` is only on the compile classpath.
+
+[v1.27 verification notes and screenshots](docs/VERIFICATION.md) ·
+[Ideas from Afnon](docs/AFNON-IDEAS.md)

@@ -27,6 +27,13 @@ public class Prefs {
     public int asr() { return s.getInt("asr", 0); } // 0 Shafi'i, 1 Hanafi
     public void setAsr(int a) { s.edit().putInt("asr", a).apply(); }
 
+    // ---- daylight saving ----
+    /** 0 = follow the TV zone, 1 = force summer time (+1h), 2 = force standard time. */
+    public int dstMode() { return s.getInt("dst_mode", 0); }
+    public void setDstMode(int m) {
+        s.edit().putInt("dst_mode", Math.max(0, Math.min(2, m))).apply();
+    }
+
     // per-prayer minute adjustments: keys tune_0..tune_5 (fajr,sunrise,dhuhr,asr,maghrib,isha)
     public int tune(int timeIdx) { return s.getInt("tune_" + timeIdx, 0); }
     public void setTune(int timeIdx, int min) { s.edit().putInt("tune_" + timeIdx, min).apply(); }

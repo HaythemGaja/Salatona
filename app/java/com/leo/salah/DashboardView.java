@@ -145,8 +145,13 @@ public class DashboardView extends LinearLayout {
         Prefs p = new Prefs(c);
 
         headerView.setText("🕌 مواقيت الصلاة - " + p.cityName().toUpperCase());
-        dateView.setText(String.format("%1$tA, %1$tB %1$te, %1$tY", cal)
-                + "  ·  " + PrayerCalc.hijriDate());
+        String dateLine = String.format("%1$tA, %1$tB %1$te, %1$tY", cal)
+                + "  ·  " + PrayerCalc.hijriDate();
+        if (p.dstMode() != Daylight.AUTO) {
+            dateLine += "  ·  " + (p.dstMode() == Daylight.ON
+                    ? "Time +1h" : "Time −1h");
+        }
+        dateView.setText(dateLine);
 
         todayTimes = PrayerCalc.timesFor(c, cal.get(Calendar.YEAR),
                 cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DAY_OF_MONTH));

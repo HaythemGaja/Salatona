@@ -1,17 +1,18 @@
 #!/bin/bash
-# Build LeoSalah.apk (versionCode 12 / versionName 1.11)
+# Build LeoSalah.apk (versionCode 28 / versionName 1.27)
 set -e
 cd "$(dirname "$0")"
-export PATH="$PWD/../jdk/bin:$PATH"
+JDK="${JAVA_HOME:-$PWD/../jdk}"
+export PATH="$JDK/bin:$PATH"
 
-BT="$PWD/../sdk/build-tools/34.0.0"
-PLAT="$PWD/../sdk/platforms/android-34/android.jar"
+BT="${BUILD_TOOLS:-$PWD/../sdk/build-tools/34.0.0}"
+PLAT="${ANDROID_JAR:-$PWD/../sdk/platforms/android-34/android.jar}"
 APP="$PWD/app"
 OUT="$PWD/build/out"
-KEYSTORE="$PWD/../debug.keystore"
+KEYSTORE="${KEYSTORE:-$PWD/../debug.keystore}"
 APK_NAME="LeoSalah.apk"
-VER_CODE=27
-VER_NAME="1.26"
+VER_CODE=28
+VER_NAME="1.27"
 
 rm -rf "$OUT"
 mkdir -p "$OUT/gen" "$OUT/classes" "$OUT/dex"

@@ -22,7 +22,7 @@ import java.util.Calendar;
  * Main dashboard screen. The ⚙ gear (top-left) is the only control —
  * everything else (city, qibla, duas, all settings) lives behind it.
  */
-public class MainActivity extends Activity {
+public class MainActivity extends BaseActivity {
 
     private DashboardView dashboard;
     private SkyView sky;
@@ -129,7 +129,8 @@ public class MainActivity extends Activity {
         }
         if (w != null) {
             // leave room for the gear in the corner, and keep the card full width
-            Ui.margin(w, Ui.dp(this, 92), 0, 0, Ui.dp(this, 10));
+            int gap = Ui.dp(this, 92);
+            Ui.margin(w, Lang.rtl() ? 0 : gap, 0, Lang.rtl() ? gap : 0, Ui.dp(this, 10));
             warnBox.addView(w);
         }
     }

@@ -16,7 +16,7 @@ import java.util.Locale;
  * Gregorian date + weekday, and day countdown. The next upcoming event is
  * highlighted in gold.
  */
-public class EventsActivity extends Activity {
+public class EventsActivity extends BaseActivity {
 
     private static final float[] WEIGHTS = {2.4f, 1.5f, 1.7f, 1.4f};
 
@@ -37,7 +37,7 @@ public class EventsActivity extends Activity {
         title.setGravity(Gravity.CENTER);
         root.addView(title);
 
-        int hy = IslamicEvents.currentHijriYear();
+        int hy = IslamicEvents.currentHijriYear(this);
         TextView sub = Ui.label(this,
                 hy > 0 ? "Hijri year " + hy + " · dates may differ \u00B11 day from moon sighting" : "",
                 16, Ui.DIM);
@@ -62,18 +62,19 @@ public class EventsActivity extends Activity {
         table.addView(header);
         table.addView(divider(0xFFD4AF37));
 
-        SimpleDateFormat gf = new SimpleDateFormat("d MMM yyyy", Locale.US);
-        SimpleDateFormat wf = new SimpleDateFormat("EEEE", Locale.US);
+        SimpleDateFormat gf = new SimpleDateFormat(Lang.ar() ? "d MMM yyyy" : "d MMM yyyy",
+                Lang.locale());
+        SimpleDateFormat wf = new SimpleDateFormat("EEEE", Lang.locale());
 
         boolean nextMarked = false;
         boolean firstRow = true;
-        for (IslamicEvents.EventInfo e : IslamicEvents.all()) {
+        for (IslamicEvents.EventInfo e : IslamicEvents.all(this)) {
             boolean isNext = !nextMarked && e.daysFromToday >= 0;
             if (isNext) nextMarked = true;
             if (!firstRow) table.addView(divider(0x22FFFFFF));
             firstRow = false;
-            table.addView(eventRow(e, isNext, gf.format(new Date(e.gregorianMillis)),
-                    wf.format(new Date(e.gregorianMillis))));
+            table.addView(eventRow(e, isNext, Lang.num(gf.format(new Date(e.gregorianMillis))),
+                    Lang.num(wf.format(new Date(e.gregorianMillis)))));
         }
         root.addView(table);
 
@@ -134,22 +135,22 @@ public class EventsActivity extends Activity {
         LinearLayout r = row();
         if (isNext) r.setBackgroundColor(0x3DD4AF37);
 
-        // event: English + Arabic
+        // event: the UI language first, the other script underneath
         LinearLayout c0 = cell(0);
-        TextView en = Ui.label(this, e.name, 19, Ui.TEXT);
+        TextView en = Ui.label(this, Lang.ar() ? e.nameAr : e.name, 19, Ui.TEXT);
         en.setTypeface(en.getTypeface(), android.graphics.Typeface.BOLD);
         c0.addView(en);
-        TextView ar = Ui.label(this, e.nameAr, 16, Ui.GOLD_BRIGHT);
-        c0.addView(ar);
+        if (!Lang.ar()) {
+            TextView ar = Ui.label(this, e.nameAr, 16, Ui.GOLD_BRIGHT);
+            c0.addView(ar);
+        }
         r.addView(c0);
 
         // hijri date
         LinearLayout c1 = cell(1);
         TextView h = Ui.label(this,
-                e.hijriDay + " " + IslamicEvents.HIJRI_MONTHS[e.hijriMonth], 18, Ui.TEXT);
+                Lang.hijriDate(e.hijriDay, e.hijriMonth + 1, e.hijriYear), 17, Ui.TEXT);
         c1.addView(h);
-        TextView hy = Ui.label(this, e.hijriYear + " AH", 14, Ui.DIM);
-        c1.addView(hy);
         r.addView(c1);
 
         // gregorian date + weekday
@@ -164,15 +165,15 @@ public class EventsActivity extends Activity {
         LinearLayout c3 = cell(3);
         TextView cd;
         if (e.daysFromToday > 1) {
-            cd = Ui.label(this, "in " + e.daysFromToday + " days", 18, Ui.GOLD_BRIGHT);
+            cd = Ui.label(this, Lang.t("in " + e.daysFromToday + " days"), 18, Ui.GOLD_BRIGHT);
         } else if (e.daysFromToday == 1) {
-            cd = Ui.label(this, "tomorrow", 18, Ui.GOLD_BRIGHT);
+            cd = Ui.label(this, Lang.t("tomorrow"), 18, Ui.GOLD_BRIGHT);
         } else if (e.daysFromToday == 0) {
-            cd = Ui.label(this, "today!", 18, Ui.GOLD_BRIGHT);
+            cd = Ui.label(this, Lang.t("today!"), 18, Ui.GOLD_BRIGHT);
         } else if (e.daysFromToday == -1) {
-            cd = Ui.label(this, "yesterday", 18, Ui.DIM);
+            cd = Ui.label(this, Lang.t("yesterday"), 18, Ui.DIM);
         } else {
-            cd = Ui.label(this, (-e.daysFromToday) + " days ago", 18, Ui.DIM);
+            cd = Ui.label(this, Lang.t((-e.daysFromToday) + " days ago"), 18, Ui.DIM);
         }
         cd.setTypeface(cd.getTypeface(), android.graphics.Typeface.BOLD);
         c3.addView(cd);

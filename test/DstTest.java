@@ -97,6 +97,21 @@ public class DstTest {
         check("Kolkata +5:30 dhuhr ~11:42 (east of meridian)",
                 autoK[2] > 11.2 && autoK[2] < 12.2, String.valueOf(autoK[2]));
 
+        // ---- calculation methods added from adhan-java / regional authorities ----
+        check("method table has the new methods",
+                PrayerTimes.METHOD_NAMES.length >= 14,
+                String.valueOf(PrayerTimes.METHOD_NAMES.length));
+        for (int method = 0; method < PrayerTimes.METHOD_NAMES.length; method++) {
+            double[] t = PrayerTimes.getTimes(2027, 7, 15, 51.5074, -0.1278, 0,
+                    method, 0, tune);
+            boolean finite = true;
+            for (double v : t) if (Double.isNaN(v) || Double.isInfinite(v)) finite = false;
+            check("method " + PrayerTimes.METHOD_NAMES[method] + " gives finite times",
+                    finite, java.util.Arrays.toString(t));
+            check("method " + PrayerTimes.METHOD_NAMES[method] + " dhuhr near noon",
+                    t[2] > 11 && t[2] < 14, String.valueOf(t[2]));
+        }
+
         // ---- DST mode constants and labels ----
         check("offset label +5:30",
                 Daylight.offsetLabel(5.5).equals("UTC+5:30"),

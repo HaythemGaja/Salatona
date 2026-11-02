@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- radiojar's HTTPS endpoint redirects some players to a plain-HTTP edge. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">stream.radiojar.com</domain>
+    </domain-config>
+</network-security-config>

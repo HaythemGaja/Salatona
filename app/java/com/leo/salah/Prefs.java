@@ -34,6 +34,38 @@ public class Prefs {
         s.edit().putInt("dst_mode", Math.max(0, Math.min(2, m))).apply();
     }
 
+    // ---- hijri ----
+    /** Days added to the Umm al-Qura date, -2..+2, for local moon sighting. */
+    public int hijriOffset() { return s.getInt("hijri_offset", 0); }
+    public void setHijriOffset(int d) {
+        s.edit().putInt("hijri_offset", Math.max(-2, Math.min(2, d))).apply();
+    }
+
+    // ---- language and display ----
+    /** 0 = follow the TV, 1 = Arabic, 2 = English. */
+    public int language() { return s.getInt("language", 0); }
+    public void setLanguage(int l) { s.edit().putInt("language", l).apply(); }
+
+    /** 0 = follow the language, 1 = Arabic-Indic digits, 2 = Western digits. */
+    public int digits() { return s.getInt("digits", 0); }
+    public void setDigits(int d) { s.edit().putInt("digits", Math.max(0, Math.min(2, d))).apply(); }
+
+    /** 0 = follow the TV, 1 = 12-hour, 2 = 24-hour. */
+    public int clockMode() { return s.getInt("clock_mode", 0); }
+    public void setClockMode(int m) { s.edit().putInt("clock_mode", m).apply(); }
+
+    public boolean night() { return s.getBoolean("night_mode", false); }
+    public void setNight(boolean n) { s.edit().putBoolean("night_mode", n).apply(); }
+
+    // ---- qibla room mode ----
+    /** Compass direction the TV faces: -1 unset, 0 North … 7 North-West (45° steps). */
+    public int facing() { return s.getInt("facing", -1); }
+    public void setFacing(int f) { s.edit().putInt("facing", f).apply(); }
+
+    // ---- radio ----
+    public String radioStation() { return s.getString("radio_station", "mishary_alafasi"); }
+    public void setRadioStation(String id) { s.edit().putString("radio_station", id).apply(); }
+
     // per-prayer minute adjustments: keys tune_0..tune_5 (fajr,sunrise,dhuhr,asr,maghrib,isha)
     public int tune(int timeIdx) { return s.getInt("tune_" + timeIdx, 0); }
     public void setTune(int timeIdx, int min) { s.edit().putInt("tune_" + timeIdx, min).apply(); }
@@ -78,7 +110,7 @@ public class Prefs {
     public static final String[] VOICE_NAMES = {
             "Athan · Voice 1", "Athan · Voice 2", "Athan · Voice 3",
             "🇱🇾 Libyan · Dokali Elalam",
-            "Custom audio file…", "Spoken announcement" };
+            "Custom audio file…", "Spoken announcement", "Arabic announcement" };
 
     // ---- per-prayer athan voice ----
     // stored: -1 = same as global, 0..3 bundled/Libyan voices, 5 = spoken announcement
@@ -94,14 +126,15 @@ public class Prefs {
     public static final String[] PRAYER_VOICE_OPTS = {
             "🌐 Same as global",
             "Athan · Voice 1", "Athan · Voice 2", "Athan · Voice 3",
-            "🇱🇾 Libyan · Dokali Elalam", "Spoken announcement" };
-    /** cycle-row option index (0..5) for a prayer; -1 stored = 0 (global). */
+            "🇱🇾 Libyan · Dokali Elalam", "Spoken announcement",
+            "Arabic announcement" };
+    /** cycle-row option index (0..6) for a prayer; -1 stored = 0 (global). */
     public static int prayerVoiceOpt(int stored) {
-        return stored < 0 ? 0 : (stored == 5 ? 5 : stored + 1);
+        return stored < 0 ? 0 : (stored >= 5 ? stored : stored + 1);
     }
-    /** stored value for a cycle-row option index (0..5). */
+    /** stored value for a cycle-row option index (0..6). */
     public static int prayerVoiceStored(int opt) {
-        return opt == 0 ? -1 : (opt == 5 ? 5 : opt - 1);
+        return opt == 0 ? -1 : (opt >= 5 ? opt : opt - 1);
     }
 
     // ---- iqamah countdown (minutes after athan, per prayer; 0 = off) ----

@@ -15,6 +15,8 @@ javac -encoding UTF-8 -source 8 -target 8 -nowarn -cp "$ANDROID_JAR" -d "$OUT" \
   app/java/com/leo/salah/PrayerCalc.java \
   app/java/com/leo/salah/Prefs.java \
   app/java/com/leo/salah/Daylight.java \
+  app/java/com/leo/salah/Lang.java \
+  app/java/com/leo/salah/Cities.java \
   test/DstTest.java
 
 java -cp "$OUT:$ANDROID_JAR" DstTest

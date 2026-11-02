@@ -91,7 +91,24 @@ public class PrayerCalc {
         return new NextPrayer(0, toMillis(t2[TIME_IDX[0]], c2));
     }
 
-    /** "7:04 PM" style. */
+    /** "7:04 PM" style (24-hour when the TV asks for it). */
+    public static String formatTime(Context c, double hour) {
+        int h = (int) hour;
+        int m = (int) Math.round((hour - h) * 60);
+        if (m == 60) { h++; m = 0; }
+        h = ((h % 24) + 24) % 24;
+        String out;
+        if (Lang.is24Hour()) {
+            out = (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+        } else {
+            String ap = h < 12 ? (Lang.ar() ? "ص" : "AM") : (Lang.ar() ? "م" : "PM");
+            int h12 = h % 12; if (h12 == 0) h12 = 12;
+            out = h12 + ":" + (m < 10 ? "0" : "") + m + " " + ap;
+        }
+        return Lang.num(out);
+    }
+
+    /** 12-hour fallback for code without a Context. */
     public static String formatTime(double hour) {
         int h = (int) hour;
         int m = (int) Math.round((hour - h) * 60);
@@ -102,13 +119,42 @@ public class PrayerCalc {
         return h12 + ":" + (m < 10 ? "0" : "") + m + " " + ap;
     }
 
-    /** "02:14:33" countdown. */
+    /** "02:14:33" countdown, in the UI digits. */
     public static String formatCountdown(long ms) {
         if (ms < 0) ms = 0;
         long s = ms / 1000;
         long h = s / 3600, m = (s % 3600) / 60, sec = s % 60;
-        return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m + ":"
-                + (sec < 10 ? "0" : "") + sec;
+        return Lang.num((h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m + ":"
+                + (sec < 10 ? "0" : "") + sec);
+    }
+
+    /** Localised prayer name; Dhuhr becomes Jumu'ah on Friday until Maghrib. */
+    public static String name(Context c, int prayerIdx) {
+        if (prayerIdx == 1 && isJumuah(c, System.currentTimeMillis()))
+            return Lang.t("Jumu'ah");
+        return Lang.prayer(prayerIdx);
+    }
+
+    /** True from Fajr-ish on Friday until that day's Maghrib. */
+    public static boolean isJumuah(Context c, long now) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTimeInMillis(now);
+        if (cal.get(Calendar.DAY_OF_WEEK) != Calendar.FRIDAY) return false;
+        double[] t = timesFor(c, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1,
+                cal.get(Calendar.DAY_OF_MONTH));
+        return now < toMillis(t[4], cal);
+    }
+
+    /** Surat al-Kahf time: Thursday after Maghrib through Friday until Maghrib. */
+    public static boolean isKahfTime(Context c, long now) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTimeInMillis(now);
+        int dow = cal.get(Calendar.DAY_OF_WEEK);
+        double[] t = timesFor(c, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1,
+                cal.get(Calendar.DAY_OF_MONTH));
+        long maghrib = toMillis(t[4], cal);
+        return (dow == Calendar.THURSDAY && now >= maghrib)
+                || (dow == Calendar.FRIDAY && now < maghrib);
     }
 
     /** Qibla bearing in degrees clockwise from true north. */
@@ -150,17 +196,24 @@ public class PrayerCalc {
             "Rabi' al-Thani", "Jumada al-Ula", "Jumada al-Akhirah", "Rajab",
             "Sha'ban", "Ramadan", "Shawwal", "Dhu al-Qa'dah", "Dhu al-Hijjah"};
 
-    public static int[] hijriToday() {
-        HijrahDate hd = HijrahDate.now();
+    public static int[] hijriToday(Context c) {
+        int off = c == null ? 0 : new Prefs(c).hijriOffset();
+        HijrahDate hd = HijrahDate.now().plus(off, java.time.temporal.ChronoUnit.DAYS);
         return new int[]{
                 hd.get(ChronoField.DAY_OF_MONTH),
                 hd.get(ChronoField.MONTH_OF_YEAR),
                 hd.get(ChronoField.YEAR)};
     }
 
+    public static int[] hijriToday() { return hijriToday(null); }
+
+    public static String hijriDate(Context c) {
+        int[] h = hijriToday(c);
+        return Lang.hijriDate(h[0], h[1], h[2]);
+    }
+
     public static String hijriDate() {
-        int[] h = hijriToday();
-        return h[0] + " " + HIJRI_MONTHS[h[1] - 1] + " " + h[2] + " AH";
+        return Lang.hijriDate(hijriToday()[0], hijriToday()[1], hijriToday()[2]);
     }
 
     /** Hijri month name for 1..12. */
@@ -168,6 +221,7 @@ public class PrayerCalc {
         return HIJRI_MONTHS[(month1to12 - 1 + 12) % 12];
     }
 
+    public static boolean isRamadan(Context c) { return hijriToday(c)[1] == 9; }
     public static boolean isRamadan() { return hijriToday()[1] == 9; }
 
     public static String dayKey(Calendar c) {

@@ -24,7 +24,7 @@ import java.util.Locale;
  * 30 days starting today. D-pad friendly: mode buttons + month selector on
  * top, day rows focusable for scrolling.
  */
-public class TimetableActivity extends Activity {
+public class TimetableActivity extends BaseActivity {
 
     private static final int MODE_GREG = 0, MODE_HIJRI = 1, MODE_DAYS = 2;
 
@@ -58,7 +58,8 @@ public class TimetableActivity extends Activity {
         title.setGravity(Gravity.CENTER);
         root.addView(title);
 
-        TextView city = Ui.label(this, new Prefs(this).cityName(), 17, Ui.DIM);
+        TextView city = Ui.label(this, Lang.city(new Prefs(this).cityName(),
+                new Prefs(this).cityCountry()), 17, Ui.DIM);
         city.setGravity(Gravity.CENTER);
         Ui.margin(city, 0, Ui.dp(this, 4), 0, 0);
         root.addView(city);
@@ -171,6 +172,7 @@ public class TimetableActivity extends Activity {
         if (mode == MODE_GREG) rebuildGreg();
         else if (mode == MODE_HIJRI) rebuildHijri();
         else rebuildDays30();
+        Lang.localize(table);
     }
 
     private static final String[] HIJRI_SHORT = {"Muh", "Saf", "Rab I", "Rab II",
@@ -179,9 +181,12 @@ public class TimetableActivity extends Activity {
     /** Short Hijri date ("16 Rab II") for a Gregorian date. */
     private String hijriShort(LocalDate g) {
         try {
-            HijrahDate h = HijrahDate.from(g);
-            return h.get(ChronoField.DAY_OF_MONTH) + " "
-                    + HIJRI_SHORT[h.get(ChronoField.MONTH_OF_YEAR) - 1];
+            int off = new Prefs(this).hijriOffset();
+            HijrahDate h = HijrahDate.from(g).plus(off, ChronoUnit.DAYS);
+            int d = h.get(ChronoField.DAY_OF_MONTH);
+            int m = h.get(ChronoField.MONTH_OF_YEAR);
+            if (Lang.ar()) return Lang.num(d + " " + Lang.hijriMonth(m));
+            return d + " " + HIJRI_SHORT[m - 1];
         } catch (Exception e) {
             return "";
         }
@@ -190,9 +195,9 @@ public class TimetableActivity extends Activity {
     // ---------------- Gregorian month ----------------
 
     private void rebuildGreg() {
-        monthLabel.setText(new SimpleDateFormat("MMMM yyyy", Locale.US)
+        monthLabel.setText(Lang.num(new SimpleDateFormat("MMMM yyyy", Lang.locale())
                 .format(new Calendar.Builder().setDate(year, month - 1, 1).build()
-                        .getTime()));
+                        .getTime())));
         table.removeAllViews();
         addHeader();
 
@@ -206,7 +211,8 @@ public class TimetableActivity extends Activity {
         for (int d = 1; d <= days; d++) {
             boolean isToday = thisMonth && d == today;
             double[] t = PrayerCalc.timesFor(this, year, month, d);
-            addDayRow(d + "\n" + hijriShort(LocalDate.of(year, month, d)),
+            addDayRow(Lang.num(String.valueOf(d)) + "\n"
+                            + hijriShort(LocalDate.of(year, month, d)),
                     t, isToday, d < days);
         }
     }
@@ -216,7 +222,8 @@ public class TimetableActivity extends Activity {
     private void rebuildHijri() {
         HijrahDate first;
         try {
-            first = HijrahDate.now()
+            int off = new Prefs(this).hijriOffset();
+            first = HijrahDate.now().plus(off, ChronoUnit.DAYS)
                     .plus(hijriShift, ChronoUnit.MONTHS)
                     .with(ChronoField.DAY_OF_MONTH, 1);
         } catch (Exception e) {
@@ -228,17 +235,21 @@ public class TimetableActivity extends Activity {
             hMonth = first.get(ChronoField.MONTH_OF_YEAR);
             days = first.lengthOfMonth();
         } catch (Exception e) {
-            int[] h = PrayerCalc.hijriToday();
+            int[] h = PrayerCalc.hijriToday(this);
             hYear = h[2]; hMonth = h[1]; days = 30;
             first = HijrahDate.now().with(ChronoField.DAY_OF_MONTH, 1);
         }
-        monthLabel.setText(PrayerCalc.hijriMonthName(hMonth) + " " + hYear + " AH");
+        monthLabel.setText(Lang.ar()
+                ? Lang.hijriMonth(hMonth) + " " + Lang.num(hYear + "") + " هـ"
+                : PrayerCalc.hijriMonthName(hMonth) + " " + hYear + " AH");
         table.removeAllViews();
         addHeader();
 
         HijrahDate todayH;
-        try { todayH = HijrahDate.now(); } catch (Exception e) { todayH = null; }
-        SimpleDateFormat gf = new SimpleDateFormat("MMM d", Locale.US);
+        try {
+            todayH = HijrahDate.now().plus(new Prefs(this).hijriOffset(), ChronoUnit.DAYS);
+        } catch (Exception e) { todayH = null; }
+        SimpleDateFormat gf = new SimpleDateFormat(Lang.ar() ? "d MMM" : "MMM d", Lang.locale());
         for (int d = 1; d <= days; d++) {
             boolean isToday = false;
             String dayLabel = String.valueOf(d);
@@ -249,7 +260,7 @@ public class TimetableActivity extends Activity {
                 t = PrayerCalc.timesFor(this, g.getYear(), g.getMonthValue(),
                         g.getDayOfMonth());
                 Date gd = Date.from(g.atStartOfDay(ZoneId.systemDefault()).toInstant());
-                dayLabel = d + "\n" + gf.format(gd);
+                dayLabel = Lang.num(String.valueOf(d)) + "\n" + Lang.num(gf.format(gd));
                 isToday = todayH != null && hd.equals(todayH);
             } catch (Exception ignored) {}
             if (t == null) continue;
@@ -262,7 +273,7 @@ public class TimetableActivity extends Activity {
     private void rebuildDays30() {
         table.removeAllViews();
         addHeader();
-        SimpleDateFormat f = new SimpleDateFormat("EEE, MMM d", Locale.US);
+        SimpleDateFormat f = new SimpleDateFormat(Lang.ar() ? "EEE، d MMM" : "EEE, MMM d", Lang.locale());
         for (int i = 0; i < 30; i++) {
             Calendar cal = Calendar.getInstance();
             cal.add(Calendar.DATE, i);
@@ -270,7 +281,7 @@ public class TimetableActivity extends Activity {
                     cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DAY_OF_MONTH));
             LocalDate g = LocalDate.of(cal.get(Calendar.YEAR),
                     cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DAY_OF_MONTH));
-            addDayRow(f.format(cal.getTime()) + "\n" + hijriShort(g), t, i == 0, i < 29);
+            addDayRow(Lang.num(f.format(cal.getTime())) + "\n" + hijriShort(g), t, i == 0, i < 29);
         }
     }
 
@@ -279,7 +290,7 @@ public class TimetableActivity extends Activity {
     private void addHeader() {
         LinearLayout header = row(false);
         for (String c : COLS) {
-            TextView t = Ui.label(this, c, 15, Ui.GOLD);
+            TextView t = Ui.label(this, Lang.t(c), 15, Ui.GOLD);
             t.setTypeface(t.getTypeface(), Typeface.BOLD);
             t.setGravity(Gravity.CENTER);
             header.addView(cell(t));
@@ -297,9 +308,9 @@ public class TimetableActivity extends Activity {
 
         String[] vals = {
                 dayLabel,
-                PrayerCalc.formatTime(t[0]), PrayerCalc.formatTime(t[1]),
-                PrayerCalc.formatTime(t[2]), PrayerCalc.formatTime(t[3]),
-                PrayerCalc.formatTime(t[4]), PrayerCalc.formatTime(t[5])};
+                PrayerCalc.formatTime(this, t[0]), PrayerCalc.formatTime(this, t[1]),
+                PrayerCalc.formatTime(this, t[2]), PrayerCalc.formatTime(this, t[3]),
+                PrayerCalc.formatTime(this, t[4]), PrayerCalc.formatTime(this, t[5])};
         for (int i = 0; i < vals.length; i++) {
             TextView tv = Ui.label(this, vals[i], i == 0 ? 16 : 17,
                     isToday ? Ui.GOLD_BRIGHT : Ui.TEXT);

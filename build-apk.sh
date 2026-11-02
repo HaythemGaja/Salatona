@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build LeoSalah.apk (versionCode 28 / versionName 1.27)
+# Build LeoSalah.apk (versionCode 29 / versionName 2.0)
 set -e
 cd "$(dirname "$0")"
 JDK="${JAVA_HOME:-$PWD/../jdk}"
@@ -11,8 +11,8 @@ APP="$PWD/app"
 OUT="$PWD/build/out"
 KEYSTORE="${KEYSTORE:-$PWD/../debug.keystore}"
 APK_NAME="LeoSalah.apk"
-VER_CODE=28
-VER_NAME="1.27"
+VER_CODE=29
+VER_NAME="2.0"
 
 rm -rf "$OUT"
 mkdir -p "$OUT/gen" "$OUT/classes" "$OUT/dex"

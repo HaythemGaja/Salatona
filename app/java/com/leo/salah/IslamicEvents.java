@@ -1,11 +1,20 @@
 package com.leo.salah;
 
-import android.icu.util.IslamicCalendar;
+import android.content.Context;
+
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.chrono.HijrahDate;
+import java.time.temporal.ChronoField;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
- * Countdown to the next Islamic religious event, computed from the Hijri
- * (tabular/civil) calendar. Dates may differ by a day from moon-sighting
- * based announcements — treated as an approximation for the countdown.
+ * Islamic events on the Umm al-Qura calendar, with the same ±2-day Hijri
+ * offset as the rest of the app. Dates may still differ by a day from local
+ * moon sighting; the offset is there for that.
  */
 public class IslamicEvents {
 
@@ -53,31 +62,31 @@ public class IslamicEvents {
             "رأس السنة الهجرية", "عاشوراء", "ليلة المعراج", "ليلة النصف من شعبان"
     };
 
-    /** Nearest upcoming event (today counts as 0 days left). */
-    public static Upcoming next() {
-        try {
-            IslamicCalendar today = new IslamicCalendar();
-            today.setCalculationType(IslamicCalendar.CalculationType.ISLAMIC_CIVIL);
-            long dayStart = startOfDay(today.getTimeInMillis());
-            int hijriYear = today.get(IslamicCalendar.YEAR);
+    private static HijrahDate today(Context c) {
+        int off = c == null ? 0 : new Prefs(c).hijriOffset();
+        return HijrahDate.now().plus(off, ChronoUnit.DAYS);
+    }
 
+    private static long toMillis(HijrahDate h) {
+        LocalDate g = LocalDate.from(h);
+        return g.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+    }
+
+    /** Nearest upcoming event (today counts as 0 days left). */
+    public static Upcoming next() { return next(null); }
+
+    public static Upcoming next(Context c) {
+        try {
+            HijrahDate today = today(c);
+            int hijriYear = today.get(ChronoField.YEAR);
             Upcoming best = null;
             for (int[] e : EVENTS) {
-                IslamicCalendar c = new IslamicCalendar();
-                c.setCalculationType(IslamicCalendar.CalculationType.ISLAMIC_CIVIL);
-                c.set(IslamicCalendar.YEAR, hijriYear);
-                c.set(IslamicCalendar.MONTH, e[0]);
-                c.set(IslamicCalendar.DAY_OF_MONTH, e[1]);
-                c.set(IslamicCalendar.HOUR_OF_DAY, 0);
-                c.set(IslamicCalendar.MINUTE, 0);
-                c.set(IslamicCalendar.SECOND, 0);
-                c.set(IslamicCalendar.MILLISECOND, 0);
-                long t = c.getTimeInMillis();
-                if (t < dayStart) {
-                    c.add(IslamicCalendar.YEAR, 1);
-                    t = c.getTimeInMillis();
+                HijrahDate target = HijrahDate.of(hijriYear, e[0] + 1, e[1]);
+                long days = ChronoUnit.DAYS.between(today, target);
+                if (days < 0) {
+                    target = HijrahDate.of(hijriYear + 1, e[0] + 1, e[1]);
+                    days = ChronoUnit.DAYS.between(today, target);
                 }
-                long days = (t - dayStart) / 86400000L;
                 if (best == null || days < best.daysLeft) {
                     Upcoming u = new Upcoming();
                     u.name = NAMES[e[2]];
@@ -92,38 +101,21 @@ public class IslamicEvents {
         }
     }
 
-    private static long startOfDay(long millis) {
-        java.util.Calendar c = java.util.Calendar.getInstance();
-        c.setTimeInMillis(millis);
-        c.set(java.util.Calendar.HOUR_OF_DAY, 0);
-        c.set(java.util.Calendar.MINUTE, 0);
-        c.set(java.util.Calendar.SECOND, 0);
-        c.set(java.util.Calendar.MILLISECOND, 0);
-        return c.getTimeInMillis();
-    }
-
     /** Every event with its nearest occurrence this Hijri year, sorted by date. */
-    public static java.util.List<EventInfo> all() {
-        java.util.List<EventInfo> out = new java.util.ArrayList<>();
+    public static List<EventInfo> all() { return all(null); }
+
+    public static List<EventInfo> all(Context c) {
+        List<EventInfo> out = new ArrayList<>();
         try {
-            IslamicCalendar today = new IslamicCalendar();
-            today.setCalculationType(IslamicCalendar.CalculationType.ISLAMIC_CIVIL);
-            long dayStart = startOfDay(today.getTimeInMillis());
-            int hijriYear = today.get(IslamicCalendar.YEAR);
-
+            HijrahDate today = today(c);
+            int hijriYear = today.get(ChronoField.YEAR);
             for (int[] e : EVENTS) {
-                IslamicCalendar c = new IslamicCalendar();
-                c.setCalculationType(IslamicCalendar.CalculationType.ISLAMIC_CIVIL);
-                c.set(IslamicCalendar.YEAR, hijriYear);
-                c.set(IslamicCalendar.MONTH, e[0]);
-                c.set(IslamicCalendar.DAY_OF_MONTH, e[1]);
-                c.set(IslamicCalendar.HOUR_OF_DAY, 0);
-                c.set(IslamicCalendar.MINUTE, 0);
-                c.set(IslamicCalendar.SECOND, 0);
-                c.set(IslamicCalendar.MILLISECOND, 0);
-                long t = c.getTimeInMillis();
-                long days = (t - dayStart) / 86400000L;
-
+                HijrahDate target = HijrahDate.of(hijriYear, e[0] + 1, e[1]);
+                long days = ChronoUnit.DAYS.between(today, target);
+                if (days < 0) {
+                    target = HijrahDate.of(hijriYear + 1, e[0] + 1, e[1]);
+                    days = ChronoUnit.DAYS.between(today, target);
+                }
                 EventInfo i = new EventInfo();
                 i.name = NAMES[e[2]];
                 i.nameAr = NAMES_AR[e[2]];
@@ -131,31 +123,32 @@ public class IslamicEvents {
                 i.hijriMonth = e[0];
                 i.hijriYear = hijriYear;
                 i.daysFromToday = days;
-                i.gregorianMillis = t;
+                i.gregorianMillis = toMillis(target);
                 out.add(i);
             }
-            java.util.Collections.sort(out,
-                    (a, b) -> Long.compare(a.daysFromToday, b.daysFromToday));
+            Collections.sort(out, (a, b) -> Long.compare(a.daysFromToday, b.daysFromToday));
         } catch (Exception ignored) {}
         return out;
     }
 
-    /** Current Hijri year (tabular/civil). */
-    public static int currentHijriYear() {
+    public static int currentHijriYear() { return currentHijriYear(null); }
+
+    public static int currentHijriYear(Context c) {
         try {
-            IslamicCalendar c = new IslamicCalendar();
-            c.setCalculationType(IslamicCalendar.CalculationType.ISLAMIC_CIVIL);
-            return c.get(IslamicCalendar.YEAR);
+            return today(c).get(ChronoField.YEAR);
         } catch (Exception e) {
             return 0;
         }
     }
 
-    /** Display text: "🌙 Ramadan (رمضان) · in 142 days" / "· today!" / "· tomorrow". */
-    public static String displayText(Upcoming u) {
+    /** Display text: "🌙 Ramadan · in 142 days" / "· today!" / "· tomorrow". */
+    public static String displayText(Upcoming u, Context c) {
         if (u == null) return "";
-        if (u.daysLeft <= 0) return "🌙 " + u.name + " (" + u.nameAr + ") · today!";
-        if (u.daysLeft == 1) return "🌙 " + u.name + " (" + u.nameAr + ") · tomorrow";
-        return "🌙 " + u.name + " (" + u.nameAr + ") · in " + u.daysLeft + " days";
+        String name = Lang.ar() ? u.nameAr : u.name;
+        if (u.daysLeft <= 0) return Lang.t("🌙 " + name + " · today!");
+        if (u.daysLeft == 1) return Lang.t("🌙 " + name + " · tomorrow");
+        return Lang.t("🌙 " + name + " · in " + u.daysLeft + " days");
     }
+
+    public static String displayText(Upcoming u) { return displayText(u, null); }
 }

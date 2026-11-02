@@ -19,6 +19,8 @@
         android:icon="@drawable/icon"
         android:banner="@drawable/banner"
         android:theme="@android:style/Theme.Material.NoActionBar"
+        android:supportsRtl="true"
+        android:networkSecurityConfig="@xml/network_security"
         android:hardwareAccelerated="true">
 
         <activity
@@ -49,9 +51,16 @@
             android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity android:name=".EventsActivity" android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity android:name=".RadioActivity" android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <service
             android:name=".AthanOverlayService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <service
+            android:name=".RadioPlayer"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
 

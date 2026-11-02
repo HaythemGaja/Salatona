@@ -57,6 +57,8 @@ public class AthanOverlayService extends Service {
     private String kind; // null = athan, or "taraweeh" / "adhkar_morning" / "adhkar_evening"
     private boolean dismissed;
     private int prevVolume = -1;
+    private boolean prevMuted;
+    private boolean volumeCaptured;
     private boolean quietActive;
     private TextView statusView;
     private Runnable fadeRunnable; // athan fade-in stepper, null when idle
@@ -76,6 +78,7 @@ public class AthanOverlayService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        Ui.init(this);
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (nm != null && Build.VERSION.SDK_INT >= 26) {
             NotificationChannel ch = new NotificationChannel(CHAN, "Athan",
@@ -109,7 +112,8 @@ public class AthanOverlayService extends Service {
 
         // gentle reminders (taraweeh / adhkar): calm card + chime, no athan
         if (kind != null) {
-            startForeground(NOTIF_ID, buildNotif(kindTitle(kind), "Tap Dismiss on screen"));
+            startForeground(NOTIF_ID, buildNotif(kindTitle(kind),
+                    Lang.t("Tap Dismiss on screen")));
             if (Settings.canDrawOverlays(this)) showGentle(kind);
             playRaw(R.raw.chime, false);
             handler.postDelayed(this::dismiss, 90_000);
@@ -117,10 +121,11 @@ public class AthanOverlayService extends Service {
             return START_NOT_STICKY;
         }
 
-        String name = PrayerCalc.NAMES[prayerIdx];
-        startForeground(NOTIF_ID, buildNotif(
-                (test ? "Test · " : "") + (pre ? name + " soon" : name + " Athan"),
-                pre ? "Prayer begins shortly" : "Tap Dismiss on screen to stop"));
+        String name = PrayerCalc.name(this, prayerIdx);
+        String title = (test ? Lang.t("Test · ") : "")
+                + (pre ? Lang.t(name + " soon") : Lang.t(name + " Athan"));
+        startForeground(NOTIF_ID, buildNotif(title,
+                Lang.t(pre ? "Prayer begins shortly" : "Tap Dismiss on screen to stop")));
 
         if (Settings.canDrawOverlays(this)) {
             showOverlay(name);
@@ -174,7 +179,7 @@ public class AthanOverlayService extends Service {
         card.addView(mosque);
 
         TextView title = new TextView(this);
-        title.setText((test ? "Test · " : "") + name);
+        title.setText((test ? Lang.t("Test · ") : "") + name);
         title.setTextSize(56);
         title.setTextColor(0xFFFFFFFF);
         title.setGravity(Gravity.CENTER);
@@ -182,7 +187,8 @@ public class AthanOverlayService extends Service {
         card.addView(title);
 
         TextView ar = new TextView(this);
-        ar.setText(PrayerCalc.NAMES_AR[prayerIdx]);
+        ar.setText(prayerIdx == 1 && PrayerCalc.isJumuah(this, System.currentTimeMillis())
+                ? "الجمعة" : PrayerCalc.NAMES_AR[prayerIdx]);
         ar.setTextSize(44);
         ar.setTextColor(0xFFD4AF37);
         ar.setGravity(Gravity.CENTER);
@@ -193,9 +199,9 @@ public class AthanOverlayService extends Service {
                 java.util.Calendar.getInstance().get(java.util.Calendar.YEAR),
                 java.util.Calendar.getInstance().get(java.util.Calendar.MONTH) + 1,
                 java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_MONTH));
-        String when = PrayerCalc.formatTime(t[PrayerCalc.TIME_IDX[prayerIdx]]);
-        sub.setText(pre ? ("begins in " + new Prefs(this).preMin() + " minutes · " + when)
-                        : (when + " · " + PrayerCalc.hijriDate()));
+        String when = PrayerCalc.formatTime(this, t[PrayerCalc.TIME_IDX[prayerIdx]]);
+        sub.setText(Lang.t(pre ? ("begins in " + new Prefs(this).preMin() + " minutes · " + when)
+                        : (when + " · " + PrayerCalc.hijriDate(this))));
         sub.setTextSize(20);
         sub.setTextColor(0xFFB0BEC5);
         sub.setGravity(Gravity.CENTER);
@@ -203,7 +209,7 @@ public class AthanOverlayService extends Service {
         card.addView(sub);
 
         statusView = new TextView(this);
-        statusView.setText(pre ? "🔔 Gentle reminder" : "🔊 Playing athan…");
+        statusView.setText(Lang.t(pre ? "🔔 Gentle reminder" : "🔊 Playing athan…"));
         statusView.setTextSize(22);
         statusView.setTextColor(0xFFFFE082);
         statusView.setGravity(Gravity.CENTER);
@@ -215,7 +221,7 @@ public class AthanOverlayService extends Service {
         btnRow.setGravity(Gravity.CENTER);
         Ui.margin(btnRow, 0, dp(28), 0, 0);
 
-        Button dismissBtn = Ui.bigButton(this, "Dismiss");
+        Button dismissBtn = Ui.bigButton(this, Lang.t("Dismiss"));
         dismissBtn.setOnClickListener(v -> dismiss());
         btnRow.addView(dismissBtn);
         card.addView(btnRow);
@@ -242,10 +248,10 @@ public class AthanOverlayService extends Service {
     }
 
     private String kindTitle(String k) {
-        if ("taraweeh".equals(k)) return "🌙 Time for Taraweeh";
-        if ("adhkar_morning".equals(k)) return "🌅 Morning adhkar";
-        if ("adhkar_evening".equals(k)) return "🌙 Evening adhkar";
-        return "Reminder";
+        if ("taraweeh".equals(k)) return Lang.t("🌙 Time for Taraweeh");
+        if ("adhkar_morning".equals(k)) return Lang.t("🌅 Morning adhkar");
+        if ("adhkar_evening".equals(k)) return Lang.t("🌙 Evening adhkar");
+        return Lang.t("Reminder");
     }
 
     /** Calm banner card for taraweeh / adhkar reminders: chime + text + dismiss. */
@@ -284,10 +290,11 @@ public class AthanOverlayService extends Service {
         card.addView(title);
 
         TextView sub = new TextView(this);
-        sub.setText(adhkar
+        sub.setText(Lang.ar() ? (adhkar
                 ? ("أذكار " + ("adhkar_morning".equals(k) ? "الصباح" : "المساء")
-                    + " · open the adhkar collection")
-                : "تقبل الله منا ومنكم · Taraweeh prayers");
+                    + " · افتح مجموعة الأذكار")
+                : "تقبل الله منا ومنكم · صلاة التراويح")
+                : (adhkar ? "Adhkar · open the collection" : "Taraweeh prayers"));
         sub.setTextSize(20);
         sub.setTextColor(0xFFB0BEC5);
         sub.setGravity(Gravity.CENTER);
@@ -295,7 +302,7 @@ public class AthanOverlayService extends Service {
         card.addView(sub);
 
         statusView = new TextView(this);
-        statusView.setText("🔔 Gentle reminder");
+        statusView.setText(Lang.t("🔔 Gentle reminder"));
         statusView.setTextSize(20);
         statusView.setTextColor(0xFFFFE082);
         statusView.setGravity(Gravity.CENTER);
@@ -308,7 +315,7 @@ public class AthanOverlayService extends Service {
         Ui.margin(btnRow, 0, dp(20), 0, 0);
 
         if (adhkar) {
-            Button openBtn = Ui.bigButton(this, "Open adhkar");
+            Button openBtn = Ui.bigButton(this, Lang.t("Open adhkar"));
             openBtn.setOnClickListener(v -> {
                 try {
                     Intent i = new Intent(this, DuasActivity.class);
@@ -319,7 +326,7 @@ public class AthanOverlayService extends Service {
             });
             btnRow.addView(openBtn);
         }
-        Button dismissBtn = Ui.bigButton(this, "Dismiss");
+        Button dismissBtn = Ui.bigButton(this, Lang.t("Dismiss"));
         if (adhkar) {
             LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -358,8 +365,11 @@ public class AthanOverlayService extends Service {
             return;
         }
         int voice = new Prefs(this).effectiveVoice(prayerIdx);
-        if (voice == 5) {
-            speak(name);
+        if (voice == 6) {
+            speak(prayerIdx == 1 && PrayerCalc.isJumuah(this, System.currentTimeMillis())
+                    ? "الجمعة" : PrayerCalc.NAMES_AR[prayerIdx], true);
+        } else if (voice == 5) {
+            speak(PrayerCalc.NAMES[prayerIdx], false);
         } else {
             playAthanFile(voice);
         }
@@ -420,24 +430,31 @@ public class AthanOverlayService extends Service {
         } catch (Exception ignored) {}
     }
 
-    private void speak(String prayerName) {
+    private void speak(String prayerName, boolean arabic) {
         try {
             tts = new TextToSpeech(this, status -> {
                 if (status == TextToSpeech.SUCCESS && tts != null) {
                     try {
-                        tts.setLanguage(Locale.US);
-                        tts.setSpeechRate(0.95f);
+                        boolean useAr = arabic;
+                        int avail = tts.setLanguage(useAr ? new Locale("ar") : Locale.US);
+                        if (useAr && (avail == TextToSpeech.LANG_MISSING_DATA
+                                || avail == TextToSpeech.LANG_NOT_SUPPORTED)) {
+                            tts.setLanguage(Locale.US);
+                            useAr = false;
+                        }
+                        tts.setSpeechRate(0.92f);
+                        String sentence = useAr
+                                ? "حان الآن موعد صلاة " + prayerName
+                                : "It is time for " + prayerName + " prayer.";
                         if (Build.VERSION.SDK_INT >= 21) {
                             tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                                 @Override public void onStart(String id) {}
                                 @Override public void onError(String id) { onAudioDone(); }
                                 @Override public void onDone(String id) { onAudioDone(); }
                             });
-                            tts.speak("It is time for " + prayerName + " prayer.",
-                                    TextToSpeech.QUEUE_FLUSH, null, "athan");
+                            tts.speak(sentence, TextToSpeech.QUEUE_FLUSH, null, "athan");
                         } else {
-                            tts.speak("It is time for " + prayerName + " prayer.",
-                                    TextToSpeech.QUEUE_FLUSH, null);
+                            tts.speak(sentence, TextToSpeech.QUEUE_FLUSH, null);
                             handler.postDelayed(this::onAudioDone, 15000);
                         }
                     } catch (Exception e) { onAudioDone(); }
@@ -465,6 +482,10 @@ public class AthanOverlayService extends Service {
     private void applyAthanVolume() {
         try {
             int want = athanTargetVolume();
+            // Some TV firmwares keep the stream muted even when its volume is raised.
+            if (audioManager.isStreamMute(AudioManager.STREAM_MUSIC))
+                audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
+                        AudioManager.ADJUST_UNMUTE, 0);
             if (want != prevVolume)
                 audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, want, 0);
         } catch (Exception ignored) {}
@@ -476,7 +497,12 @@ public class AthanOverlayService extends Service {
             if (audioManager == null)
                 audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
             int max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-            prevVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+            if (!volumeCaptured) {
+                prevVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+                try { prevMuted = audioManager.isStreamMute(AudioManager.STREAM_MUSIC); }
+                catch (Exception ignored) {}
+                volumeCaptured = true;
+            }
             return Math.max(1, max * new Prefs(this).athanVol() / 100);
         } catch (Exception ignored) {
             return -1;
@@ -527,7 +553,11 @@ public class AthanOverlayService extends Service {
         try {
             if (audioManager != null && prevVolume >= 0) {
                 audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, prevVolume, 0);
+                if (prevMuted) audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
+                        AudioManager.ADJUST_MUTE, 0);
                 prevVolume = -1;
+                prevMuted = false;
+                volumeCaptured = false;
             }
             if (focusRequest != null && Build.VERSION.SDK_INT >= 26)
                 audioManager.abandonAudioFocusRequest(focusRequest);
@@ -540,7 +570,8 @@ public class AthanOverlayService extends Service {
         releasePlayer();
         restoreVolume();
         if (statusView != null) {
-            statusView.setText("تقبل الله · Taqabbal Allahu minna wa minkum");
+            statusView.setText(Lang.ar() ? "تقبل الله منا ومنكم"
+                    : "Taqabbal Allahu minna wa minkum");
             statusView.setAlpha(1f);
         }
         handler.removeCallbacks(pulse);
@@ -561,8 +592,8 @@ public class AthanOverlayService extends Service {
             audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
                     AudioManager.ADJUST_MUTE, 0);
             quietActive = true;
-            startForeground(NOTIF_ID, buildNotif("🌙 Quiet time",
-                    "TV sound resumes in " + q + " minutes"));
+            startForeground(NOTIF_ID, buildNotif(Lang.t("🌙 Quiet time"),
+                    Lang.t("TV sound resumes in " + q + " minutes")));
             handler.postDelayed(() -> {
                 try {
                     audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
@@ -645,7 +676,8 @@ public class AthanOverlayService extends Service {
                 .setContentText(text)
                 .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
                 .addAction(new Notification.Action.Builder(
-                        android.R.drawable.ic_menu_close_clear_cancel, "Dismiss", pi).build());
+                        android.R.drawable.ic_menu_close_clear_cancel,
+                        Lang.t("Dismiss"), pi).build());
         if (Build.VERSION.SDK_INT >= 26) b.setChannelId(CHAN);
         return b.build();
     }

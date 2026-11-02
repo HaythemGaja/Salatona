@@ -25,7 +25,7 @@ import java.util.Locale;
  * tiny self-contained slippy-map script — no Google API, no JS libraries.
  * The map is north-up, so the gold arrow points at the true qibla bearing.
  */
-public class QiblaActivity extends Activity {
+public class QiblaActivity extends BaseActivity {
 
     private WebView web;
 
@@ -70,23 +70,42 @@ public class QiblaActivity extends Activity {
                 FrameLayout.LayoutParams.MATCH_PARENT));
         root.addView(mapFrame, mlp);
 
-        TextView note = Ui.label(this,
-                "🛰 satellite view · gold arrow points to the Kaaba · map is saved for offline use",
+        TextView note = Ui.label(this, Lang.t(
+                "🛰 satellite view · gold arrow points to the Kaaba · map is saved for offline use"),
                 16, Ui.DIM);
         note.setGravity(Gravity.CENTER);
         Ui.margin(note, 0, Ui.dp(this, 10), 0, 0);
         root.addView(note);
 
-        TextView info = Ui.label(this,
-                String.format("Qibla is %.0f° clockwise from North\nFace %s",
-                        bearing, PrayerCalc.directionName(bearing)),
-                24, Ui.GOLD);
+        String infoText;
+        if (p.facing() >= 0) {
+            double facingDeg = p.facing() * 45.0;
+            double rel = ((bearing - facingDeg) % 360 + 540) % 360 - 180;
+            String side;
+            if (Math.abs(rel) <= 20) side = "ahead";
+            else if (rel > 20 && rel <= 70) side = "ahead-right";
+            else if (rel > 70 && rel < 110) side = "to your right";
+            else if (rel >= 110 && rel < 160) side = "behind-right";
+            else if (rel <= -20 && rel >= -70) side = "ahead-left";
+            else if (rel < -70 && rel > -110) side = "to your left";
+            else if (rel <= -110 && rel > -160) side = "behind-left";
+            else side = "behind you";
+            infoText = Lang.ar()
+                    ? "القبلة " + Lang.t(side) + "\n" + String.format(Locale.US, "%.0f° من الشمال", bearing)
+                    : String.format(Locale.US, "Qibla is %s\n%.0f° from North", side, bearing);
+            infoText = Lang.num(infoText);
+        } else {
+            infoText = Lang.t(String.format(Locale.US,
+                    "Qibla is %.0f° clockwise from North\nFace %s",
+                    bearing, PrayerCalc.directionName(bearing)));
+        }
+        TextView info = Ui.label(this, infoText, 24, Ui.GOLD);
         info.setGravity(Gravity.CENTER);
         Ui.margin(info, 0, Ui.dp(this, 8), 0, 0);
         root.addView(info);
 
         TextView city = Ui.label(this,
-                "from " + p.cityName() + ", " + p.cityCountry(), 18, Ui.DIM);
+                Lang.t("from " + Lang.city(p.cityName(), p.cityCountry())), 18, Ui.DIM);
         city.setGravity(Gravity.CENTER);
         Ui.margin(city, 0, Ui.dp(this, 8), 0, 0);
         root.addView(city);

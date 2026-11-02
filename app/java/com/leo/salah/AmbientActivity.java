@@ -17,7 +17,7 @@ import android.widget.TextView;
  * screensavers from Settings, this is the zero-setup way to keep the prayer
  * clock on screen. Press any button to exit.
  */
-public class AmbientActivity extends Activity {
+public class AmbientActivity extends BaseActivity {
 
     private DashboardView dashboard;
     private final Handler handler = new Handler(Looper.getMainLooper());

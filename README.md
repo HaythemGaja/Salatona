@@ -8,7 +8,29 @@ compass, tasbih counter, post-prayer duas, and a Ramadan Suhoor/Iftar card.
 - Package: `com.leo.salah` (upgrades existing installs in place)
 - Prayer times: on-device PrayTimes engine (no API key)
 - Weather: Open-Meteo hourly forecast (free, no API key)
-- Current release: v1.27 (versionCode 28)
+- Current release: v2.0 (versionCode 29)
+
+## What is new in 2.0
+
+- **Arabic and English UI** — a language row (follow the TV, العربية, English),
+  full RTL layout, Arabic-Indic or Western digits, and Arabic month/Hijri names.
+- **Hijri date offset** — ±2 days on the Umm al-Qura calendar, shared by the
+  dashboard, timetable, events and Ramadan/Taraweeh logic.
+- **Friday mode** — Dhuhr becomes Jumu'ah from Fajr to Maghrib, with a Surat
+  al-Kahf card from Thursday evening.
+- **Quran radio** — 19 live stations and reciter channels, in a foreground
+  player that pauses for the athan and resumes after it.
+- **Qibla room mode** — tell Salatona which way the TV faces and it says
+  whether the Qibla is ahead, left, right or behind you.
+- **More calculation methods** — Dubai, Kuwait, Qatar, Singapore, Turkey,
+  Oman Awqaf and Morocco Habous, plus per-country defaults when the city changes.
+- **Arabic announcements** — a spoken Arabic athan option alongside the
+  bundled voices and the custom audio file.
+- **Unmute for the athan** — a muted TV is unmuted for the call and muted again
+  afterwards.
+- **Follow the TV's clock** — 12/24-hour follows the system setting (or can be
+  forced in Settings).
+- **Night colours** — a warmer, dimmer palette for the dark hours.
 
 ## Daylight saving
 
@@ -34,6 +56,10 @@ Display, System, About) on the start side, and the open section's rows on the
 end side. Up/Down move through the rail, OK or Right opens a section, Back
 returns to it. Within a section, Left/Right change a value in place, so focus
 is never rebuilt or lost.
+
+Display holds **Language** (follow the TV, العربية, English), **Numbers**
+(Arabic-Indic/Western), **Clock format** (follow the TV, 12h, 24h) and **Night
+colours**. Tools holds Qibla, the TV-facing row and Quran radio.
 
 ## Timeline
 
@@ -77,9 +103,9 @@ key instead — never embed a keystore in the app or the repo.
 ANDROID_SDK_ROOT=../sdk bash test/run-dst-test.sh
 ```
 
-Runs 55 headless checks (winter/summer/transition days in New York, a
-half-hour zone, and the `toMillis` wall-clock round-trip). No device needed;
-`android.jar` is only on the compile classpath.
+Runs 84 headless checks (all 14 calculation methods, winter/summer/
+transition days in New York, a half-hour zone, and the `toMillis` wall-clock
+round-trip). No device needed; `android.jar` is only on the compile classpath.
 
 [v1.27 verification notes and screenshots](docs/VERIFICATION.md) ·
 [Ideas from Afnon](docs/AFNON-IDEAS.md)

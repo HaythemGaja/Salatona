@@ -25,6 +25,7 @@ public class PrayerTimelineView extends View {
 
     private static final String[] NAMES =
             {"Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"};
+    private String[] names = NAMES;
     private static final int N = 6;
 
     // the salah day the nodes belong to: islamic midnight -> islamic midnight
@@ -65,6 +66,14 @@ public class PrayerTimelineView extends View {
             winStartMs = winStart;
             winEndMs = winEnd;
             hasTimes = true;
+            invalidate();
+        }
+    }
+
+    /** Localised node names (Fajr .. Isha), set by the dashboard. */
+    public void setNames(String[] names) {
+        if (names != null && names.length == N) {
+            this.names = names;
             invalidate();
         }
     }
@@ -167,11 +176,11 @@ public class PrayerTimelineView extends View {
             boolean on = now >= nodeMs[i] && now <= nodeMs[i] + HIGHLIGHT_MS;
             textPaint.setColor(on ? Ui.GOLD_BRIGHT
                     : isNext ? 0xFFFFD98A : Ui.TEXT);
-            cv.drawText(NAMES[i], xs[i], nameY, textPaint);
+            cv.drawText(names[i], xs[i], nameY, textPaint);
             textPaint.setTypeface(Typeface.DEFAULT);
             textPaint.setTextSize(sp(13));
             textPaint.setColor(0xFFB0BEC5);
-            cv.drawText(PrayerCalc.formatTime(millisToHour(nodeMs[i])), xs[i], timeY, textPaint);
+            cv.drawText(PrayerCalc.formatTime(getContext(), millisToHour(nodeMs[i])), xs[i], timeY, textPaint);
             // forecast: tiny icon + temperature
             if (fcKind[i] >= 0 && fcTemp[i] != Integer.MIN_VALUE) {
                 String t = fcTemp[i] + "°";

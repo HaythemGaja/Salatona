@@ -33,7 +33,7 @@ import java.util.function.IntSupplier;
  * section, Back returns to the rail. Inside a section every row is a single
  * focusable: Left/Right change a value in place, so focus is never lost.
  */
-public class SettingsActivity extends Activity {
+public class SettingsActivity extends BaseActivity {
 
     private static final int REQ_AUDIO = 101;
     private static final int REQ_NOTIFICATIONS = 102;
@@ -270,8 +270,8 @@ public class SettingsActivity extends Activity {
         p = new Prefs(this);
         list.removeAllViews();
         firstFocusable = null;
-        sectionTitle.setText(CAT_ICONS[category] + "  " + CAT_LABELS[category]);
-        sectionSub.setText(CAT_SUBS[category]);
+        sectionTitle.setText(CAT_ICONS[category] + "  " + Lang.t(CAT_LABELS[category]));
+        sectionSub.setText(Lang.t(CAT_SUBS[category]));
 
         switch (category) {
             case CAT_PRAYER: buildPrayer(); break;
@@ -281,11 +281,14 @@ public class SettingsActivity extends Activity {
             case CAT_SYSTEM: buildSystem(); break;
             default: buildAbout(); break;
         }
+        Lang.localize(sectionTitle);
+        Lang.localize(sectionSub);
+        Lang.localize(list);
     }
 
     private void buildPrayer() {
         sub("LOCATION");
-        navRow("📍 City", p.cityName() + ", " + p.cityCountry(),
+        navRow("📍 City", Lang.city(p.cityName(), p.cityCountry()),
                 v -> startActivity(new Intent(this, CityPickerActivity.class)));
 
         sub("CALCULATION");
@@ -293,15 +296,20 @@ public class SettingsActivity extends Activity {
                 p::method, v -> { p.setMethod(v); reschedule(); });
         cycleRow("Asr time", new String[]{"Shafi'i · Maliki · Hanbali", "Hanafi"},
                 p::asr, v -> { p.setAsr(v); reschedule(); });
+        cycleRow("Hijri date",
+                new String[]{"−2 days", "−1 day", "No adjustment", "+1 day", "+2 days"},
+                () -> p.hijriOffset() + 2,
+                v -> { p.setHijriOffset(v - 2); reschedule(); });
+        note("Umm al-Qura calendar; move it a day when your local moon sighting differs.");
 
         final TextView dstNote = noteView("");
         cycleRow("Daylight saving", Daylight.MODE_NAMES, p::dstMode, v -> {
             p.setDstMode(v);
-            dstNote.setText(Daylight.status(this));
+            dstNote.setText(Lang.t(Daylight.status(this)));
             reschedule();
         });
         list.addView(dstNote);
-        dstNote.setText(Daylight.status(this));
+        dstNote.setText(Lang.t(Daylight.status(this)));
         list.addView(noteView("Auto follows the TV's zone and changes at the official "
                 + "transition. On/Off shift every prayer by one hour when the TV clock "
                 + "and your country disagree."));
@@ -343,9 +351,9 @@ public class SettingsActivity extends Activity {
         sub("PRAYERS");
         for (int i = 0; i < 5; i++) {
             final int pi = i;
-            switchRow("Athan for " + PrayerCalc.NAMES[i], () -> p.athanOn(pi),
+            switchRow("Athan for " + Lang.prayer(i), () -> p.athanOn(pi),
                     on -> { p.setAthanOn(pi, on); reschedule(); });
-            cycleRow("🎙 " + PrayerCalc.NAMES[i] + " voice", Prefs.PRAYER_VOICE_OPTS,
+            cycleRow("🎙 " + Lang.prayer(i) + " voice", Prefs.PRAYER_VOICE_OPTS,
                     () -> Prefs.prayerVoiceOpt(p.prayerVoice(pi)),
                     v -> p.setPrayerVoice(pi, Prefs.prayerVoiceStored(v)));
         }
@@ -369,6 +377,16 @@ public class SettingsActivity extends Activity {
         sub("DIRECTION");
         navRow("🧭 Qibla compass", "bearing from your city",
                 v -> startActivity(new Intent(this, QiblaActivity.class)));
+        cycleRow("TV faces",
+                new String[]{"Not set", "North", "North-East", "East", "South-East",
+                        "South", "South-West", "West", "North-West"},
+                () -> p.facing() + 1, v -> p.setFacing(v - 1));
+        note("Used for the room-relative Qibla line: tell Salatona which way the screen faces.");
+
+        sub("QURAN");
+        navRow("📻 Quran radio", "live stations and reciters",
+                v -> startActivity(new Intent(this, RadioActivity.class)));
+
         sub("SUPPLICATIONS");
         navRow("🤲 Duas", "after prayer · morning · night",
                 v -> startActivity(new Intent(this, DuasActivity.class)));
@@ -378,6 +396,15 @@ public class SettingsActivity extends Activity {
     }
 
     private void buildDisplay() {
+        sub("LANGUAGE & NUMBERS");
+        cycleRow("Language", new String[]{"Follow TV", "Arabic", "English"},
+                p::language, v -> { p.setLanguage(v); recreate(); });
+        cycleRow("Numbers", new String[]{"Follow language", "Arabic-Indic", "Western"},
+                p::digits, v -> { p.setDigits(v); recreate(); });
+        cycleRow("Clock format", new String[]{"Follow TV", "12-hour", "24-hour"},
+                p::clockMode, v -> { p.setClockMode(v); recreate(); });
+        switchRow("Night colours", p::night, v -> { p.setNight(v); recreate(); });
+
         sub("AMBIENT");
         navRow("▶ Ambient display", "prayer clock that keeps the screen on",
                 v -> startActivity(new Intent(this, AmbientActivity.class)));
@@ -463,18 +490,18 @@ public class SettingsActivity extends Activity {
 
     private void buildAbout() {
         sub("SALATONA");
-        list.addView(noteView("Version " + versionName() + "\n"
-                + "On-device prayer times with a full-day timeline, athan overlay, "
-                + "timetable, Qibla, duas and a Ramadan card.\n"
-                + "No accounts, no ads, no analytics."));
+        list.addView(noteView(Lang.t("Version " + versionName()) + "\n"
+                + Lang.t("On-device prayer times with a full-day timeline, athan overlay, "
+                + "timetable, Qibla, duas and a Ramadan card.") + "\n"
+                + Lang.t("No accounts, no ads, no analytics.")));
 
         sub("TIME ZONE");
-        list.addView(noteView("TV zone: " + ZoneId.systemDefault().getId() + "\n"
-                + Daylight.status(this)));
+        list.addView(noteView(Lang.t("TV zone: " + ZoneId.systemDefault().getId()) + "\n"
+                + Lang.t(Daylight.status(this))));
 
         sub("PRIVACY");
-        list.addView(noteView("Your city and settings stay on this TV. Weather is the "
-                + "only network request; prayer times never need the internet."));
+        list.addView(noteView(Lang.t("Your city and settings stay on this TV. Weather is the "
+                + "only network request; prayer times never need the internet.")));
 
         actionRow("Close settings", v -> finish());
     }
@@ -543,7 +570,7 @@ public class SettingsActivity extends Activity {
         TextView v = rowValue();
         v.setTextColor(Ui.DIM);
         v.setTextSize(14);
-        v.setText(value + "  ›");
+        v.setText(Lang.t(value) + "  ›");
         inner.addView(v);
         LinearLayout row = baseRow(lab, v);
         row.addView(inner);
@@ -576,7 +603,7 @@ public class SettingsActivity extends Activity {
         LinearLayout row = baseRow(lab, v);
         row.addView(inner);
 
-        Runnable paint = () -> v.setText("‹  " + options[cur.getAsInt()] + "  ›");
+        Runnable paint = () -> v.setText(Lang.t("‹  " + options[cur.getAsInt()] + "  ›"));
         paint.run();
         row.setOnClickListener(vv -> {
             setter.set((cur.getAsInt() + 1) % options.length);
@@ -609,7 +636,7 @@ public class SettingsActivity extends Activity {
         LinearLayout row = baseRow(lab, v);
         row.addView(inner);
 
-        Runnable paint = () -> v.setText("−  " + fmt.apply(cur.getAsInt()) + "  +");
+        Runnable paint = () -> v.setText(Lang.num("−  " + fmt.apply(cur.getAsInt()) + "  +"));
         paint.run();
         row.setOnClickListener(vv -> {
             setter.set(Math.min(max, cur.getAsInt() + step));
@@ -643,7 +670,7 @@ public class SettingsActivity extends Activity {
 
         Runnable paint = () -> {
             boolean on = cur.getAsBoolean();
-            v.setText(on ? "● ON" : "○ OFF");
+            v.setText(Lang.t(on ? "● ON" : "○ OFF"));
         };
         paint.run();
         View.OnClickListener toggle = vv -> {
@@ -672,7 +699,7 @@ public class SettingsActivity extends Activity {
         inner.addView(lab);
         TextView v = rowValue();
         v.setTextSize(14);
-        v.setText(ok ? okText : badText);
+        v.setText(Lang.t(ok ? okText : badText));
         v.setTextColor(ok ? Ui.GREEN : Ui.GOLD_BRIGHT);
         inner.addView(v);
         LinearLayout row = baseRow(lab, v);
@@ -703,7 +730,7 @@ public class SettingsActivity extends Activity {
         try {
             return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
         } catch (Exception e) {
-            return "1.27";
+            return "2.0";
         }
     }
 

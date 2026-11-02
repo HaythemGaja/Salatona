@@ -14,16 +14,53 @@ import android.widget.TextView;
 
 /** Shared TV-friendly styling helpers. No external dependencies. */
 public class Ui {
-    public static final int BG = 0xFF0E1B16;
-    public static final int BG_DEEP = 0xFF091410;
-    public static final int CARD = 0xFF16261F;
-    public static final int CARD_HI = 0xFF1D3A2C;
-    public static final int GOLD = 0xFFD4AF37;
-    public static final int GOLD_BRIGHT = 0xFFFFD54F;
-    public static final int TEXT = 0xFFFFFFFF;
-    public static final int DIM = 0xFF9E9E9E;
-    public static final int GREEN = 0xFF66BB6A;
-    public static final int DARK_TEXT = 0xFF10231A;
+    public static int BG = 0xFF0E1B16;
+    public static int BG_DEEP = 0xFF091410;
+    public static int CARD = 0xFF16261F;
+    public static int CARD_HI = 0xFF1D3A2C;
+    public static int GOLD = 0xFFD4AF37;
+    public static int GOLD_BRIGHT = 0xFFFFD54F;
+    public static int TEXT = 0xFFFFFFFF;
+    public static int DIM = 0xFF9E9E9E;
+    public static int GREEN = 0xFF66BB6A;
+    public static int DARK_TEXT = 0xFF10231A;
+    private static boolean night;
+
+    /** Apply the saved language, digits and palette before a screen is built. */
+    public static void init(Context c) {
+        Prefs p = new Prefs(c);
+        Lang.init(c);
+        applyTheme(p.night());
+    }
+
+    public static void applyTheme(boolean n) {
+        night = n;
+        if (n) {
+            BG = 0xFF0B0A07;
+            BG_DEEP = 0xFF060504;
+            CARD = 0xFF1B1710;
+            CARD_HI = 0xFF292116;
+            GOLD = 0xFFC9A227;
+            GOLD_BRIGHT = 0xFFF0D27A;
+            TEXT = 0xFFF3EBDD;
+            DIM = 0xFFA99B84;
+            GREEN = 0xFF8CBF8A;
+            DARK_TEXT = 0xFF0B0906;
+        } else {
+            BG = 0xFF0E1B16;
+            BG_DEEP = 0xFF091410;
+            CARD = 0xFF16261F;
+            CARD_HI = 0xFF1D3A2C;
+            GOLD = 0xFFD4AF37;
+            GOLD_BRIGHT = 0xFFFFD54F;
+            TEXT = 0xFFFFFFFF;
+            DIM = 0xFF9E9E9E;
+            GREEN = 0xFF66BB6A;
+            DARK_TEXT = 0xFF10231A;
+        }
+    }
+
+    public static boolean night() { return night; }
 
     public static int dp(Context c, int v) {
         return (int) (v * c.getResources().getDisplayMetrics().density);

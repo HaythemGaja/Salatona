@@ -1,62 +1,81 @@
-# Verification — v1.27
+# Verification — v2.0
 
-Date: 2026-11-01 · Build: `versionCode 28`, `versionName 1.27` · signed with
+Date: 2026-11-02 · Build: `versionCode 29`, `versionName 2.0` · signed with
 the local debug key.
 
 ## Automated checks
 
 ```sh
 ANDROID_SDK_ROOT=../sdk bash test/run-dst-test.sh
-# 55 checks passed, 0 failed
+# 84 checks passed, 0 failed
 ```
 
-Covers winter/summer/transition days in `America/New_York`, the ±1-hour manual
-modes, a half-hour zone (`Asia/Kolkata`), and the `toMillis` wall-clock
-round-trip. `PrayerCalc.toLocal()` is Android-free, so the test runs on the
-desktop JVM with `android.jar` only on the compile classpath.
+Covers the 14 calculation methods (all finite, Dhuhr near solar noon),
+winter/summer/transition days in `America/New_York`, the ±1-hour DST modes,
+a half-hour zone (`Asia/Kolkata`), and the `toMillis` wall-clock round-trip.
+`PrayerCalc.toLocal()` is Android-free, so the suite runs on the desktop JVM
+with `android.jar` only on the compile classpath.
 
 ## Device checks
 
-Android TV API 34 emulator, 1280×720 at 213 dpi (960×540 dp — the same dp
-canvas as a 1080p TV at 320 dpi), clean install of the APK. City: Tripoli;
-time zone: `Africa/Tripoli` unless noted.
+Android TV API 34 emulator, 1280×720 at 213 dpi (960×540 dp), clean install of
+the APK. Cities and dates below were changed during the run and reset after.
 
-- **Settings, two panes.** Six sections on the start-side rail; Up/Down moves,
-  OK opens, Back returns. Every content row is still one focusable and
-  Left/Right update values in place.
-- **Daylight saving, Auto.** With the TV zone set to `Australia/Sydney` the
-  row reads `Australia/Sydney · daylight saving active · UTC+11`; with
-  `Africa/Tripoli` it reads `Africa/Tripoli · standard time · UTC+2`.
-- **Daylight saving, On.** Selecting *On · +1 hour* shows
-  `Africa/Tripoli · shifted +1 hour · UTC+3`; the dashboard appends
-  `Time +1h` and every prayer moves one hour later (Fajr 6:01 → 7:01 AM,
-  Dhuhr 12:51 → 1:51 PM, Isha 7:36 → 8:36 PM).
-- **Daylight saving, Off.** Shows `shifted −1 hour · UTC+1`; the dashboard
-  moves every prayer one hour earlier.
-- **Alarms reschedule.** `dumpsys alarm` for the next Fajr (`ATHAN_20`):
-  - Auto: `origWhen=2026-11-02 06:02:00`
-  - On: `origWhen=2026-11-02 07:02:00`
-  - back to Auto: `origWhen=2026-11-02 06:02:00`
-- **Permissions.** Overlay granted, notification row shows Granted, exact
-  alarms grants from the System section, battery state reads Restricted.
-- **Old layout for comparison.** v1.26 built from `a361682`, clean-installed,
-  settings screenshot captured.
+- **English UI.** Dashboard, settings rail and rows render in English; the
+  screenshots show `Salatona 2.0`.
+- **Arabic UI / RTL.** Settings → Display → Language → العربية recreates the
+  screen with the rail on the right, Arabic labels, Arabic-Indic digits,
+  Arabic weekdays/months and Hijri names. Switching back to English restores
+  the LTR layout.
+- **24-hour clock.** Setting the TV to 24-hour removes AM/PM from the dashboard
+  clock, the timeline and the timetable (`07:10:15`, `05:02`). The Display row
+  can also force 12h or 24h.
+- **Per-city defaults.** Choosing Cairo from the city picker set the method to
+  Egyptian Authority and left the Asr school at Shafi'i; the city row shows
+  `القاهرة، مصر` / `Cairo, Egypt`.
+- **Friday / Jumu'ah.** System date set to Friday 6 November 2026. The date
+  line reads الجمعة, the Dhuhr timeline node and countdown say الجمعة, and the
+  Surat al-Kahf card appears.
+- **Qibla room mode.** Set TV faces = North, then opened Qibla: the screen
+  reads `القبلة خلفك يميناً` (Qibla behind-right) and `١٣٦° من الشمال`, with
+  the Cairo map and Kaaba marker.
+- **Quran radio.** Opened from Tools → Quran radio. A reciter channel
+  (`Mishary Alafasy`, direct MP3) played and the header showed
+  `يعمل: مشاري العفاسي`; the foreground player continued across screens.
+  The Cairo radiojar stream failed in this emulator (source error -1); the
+  direct mp3quran reciters are the safe default.
+- **Night colours.** Toggling Night colours in Display recreated the screen
+  with the warm/dim palette (background, cards, gold).
+- **Hijri offset.** ±2-day row added under Prayer times → Calendar, applied
+  by the dashboard, timetable, events and taraweeh scheduler.
+- **Daylight saving.** Still verified from the previous cycle: Auto/±1h status,
+  dashboard badge and alarms rescheduling (next Fajr 06:02 Auto → 07:02 On →
+  06:02 Auto).
+- **Arabic announcement.** A seventh voice option (`Arabic announcement`) is
+  wired to Arabic TTS with an English fallback. Audio output was not audible
+  because the emulator runs with `-no-audio`.
 
 ## Screenshots
 
 | | |
 |---|---|
-| ![New Prayer times section](screenshots/settings-prayer.png) | ![Athan section](screenshots/settings-athan.png) |
-| **Prayer times.** Rail + rows, full-width values, DST status and explanation. | **Athan.** Grouped into Voice & volume / Prayers / Alerts; scrolls under the fixed header. |
-| ![Daylight saving on](screenshots/settings-daylight-on.png) | ![Dashboard with +1h](screenshots/dashboard-daylight-on.png) |
-| **Daylight saving on.** `On · +1 hour`, status shows UTC+3. | **Dashboard.** Date line carries `Time +1h`; timeline and countdown use the shifted times. |
-| ![System](screenshots/settings-system.png) | ![Old settings](screenshots/settings-v1.26-before.png) |
-| **System.** Battery, reschedule action, permission states. | **Before (v1.26).** One long column; labels and values ran together, rows were wrap-width. |
+| ![English dashboard](screenshots/dashboard-en.png) | ![Arabic dashboard](screenshots/dashboard-ar.png) |
+| **English dashboard.** 12-hour clock, English labels. | **Arabic dashboard.** RTL, Arabic-Indic digits, Arabic date and Hijri date. |
+| ![English settings](screenshots/settings-en.png) | ![Arabic settings](screenshots/settings-ar.png) |
+| **Settings (English).** Hijri offset row and reorganized sections. | **Settings (Arabic).** Rail on the right; no mixed English chrome. |
+| ![Qibla room mode](screenshots/qibla-room-ar.png) | ![Quran radio](screenshots/radio-ar.png) |
+| **Qibla room mode.** “Behind-right, 136° from north.” | **Quran radio.** Arabic station list and live status. |
+| ![Friday](screenshots/friday-ar.png) | ![Night colours](screenshots/night-ar.png) |
+| **Friday.** Jumu'ah replaces Dhuhr; Surat al-Kahf card. | **Night colours.** Warm palette on the settings screen. |
 
-## Not covered here
+## Known limitations
 
-- A physical TV/remote (the emulator was driven with `adb input keyevent`).
-- The notification-permission system dialog (the permission was granted with
-  `pm grant` for the test); the row and request path are wired.
-- Audio output (the emulator ran with `-no-audio`); the athan overlay was not
-  triggered.
+- A physical TV/remote was not used; input was `adb input keyevent`.
+- Audio was disabled, so the athan, unmute, Arabic TTS and radio audio were
+  verified by state/UI and code, not by listening.
+- The Cairo radiojar stream failed on this emulator; some HLS stations may also
+  depend on firmware codec support. The direct reciter MP3s are reliable.
+- No new recorded adhan voices were added (the existing recordings are
+  unlicensed); the extra voice is the Arabic TTS announcement.
+- Duas keep their English translation line in Arabic mode by design; the
+  Arabic text is the primary content.

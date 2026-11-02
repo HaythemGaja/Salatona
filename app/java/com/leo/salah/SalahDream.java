@@ -33,6 +33,7 @@ public class SalahDream extends DreamService {
         super.onAttachedToWindow();
         setInteractive(false);
         setFullscreen(true);
+        Ui.init(this);
 
         FrameLayout frame = new FrameLayout(this);
         sky = new SkyView(this);

@@ -8,12 +8,14 @@ package com.leo.salah;
 public class PrayerTimes {
 
     public static final int JAFARI = 0, KARACHI = 1, ISNA = 2, MWL = 3,
-            MAKKAH = 4, EGYPT = 5, TEHRAN = 6;
+            MAKKAH = 4, EGYPT = 5, TEHRAN = 6, DUBAI = 7, KUWAIT = 8,
+            QATAR = 9, SINGAPORE = 10, TURKEY = 11, OMAN = 12, MOROCCO = 13;
 
     public static final String[] METHOD_NAMES = {
             "Shia (Jafari)", "Karachi", "ISNA (North America)",
             "Muslim World League", "Umm al-Qura (Makkah)",
-            "Egyptian Authority", "Tehran" };
+            "Egyptian Authority", "Tehran", "Dubai", "Kuwait", "Qatar",
+            "Singapore", "Turkey (Diyanet)", "Oman Awqaf", "Morocco Habous" };
 
     // {fajrAngle, maghribVal, maghribIsMinutes, ishaVal, ishaIsMinutes}
     private static final double[][] P = {
@@ -24,6 +26,31 @@ public class PrayerTimes {
             {18.5, 0,   0, 90, 1},  // Makkah (isha = 90 min after maghrib)
             {19.5, 0,   0, 17.5, 0},// Egypt
             {17.7, 4.5, 1, 14, 0},  // Tehran (maghrib = 4.5 min after sunset)
+            {18.2, 0,   0, 18.2, 0},// Dubai
+            {18,   0,   0, 17.5, 0},// Kuwait
+            {18,   0,   0, 90,   1},// Qatar (isha = 90 min after maghrib)
+            {20,   0,   0, 18,   0},// Singapore
+            {18,   0,   0, 17,   0},// Turkey (Diyanet)
+            {18,   0,   0, 18,   0},// Oman (Ministry of Awqaf, fitted)
+            {19,   0,   0, 17,   0},// Morocco (Ministry of Habous)
+    };
+
+    /** Method-specific minute adjustments: fajr, sunrise, dhuhr, asr, maghrib, isha. */
+    private static final int[][] ADJ = {
+            {0, 0, 0, 0, 0, 0},     // Jafari
+            {0, 0, 0, 0, 0, 0},     // Karachi
+            {0, 0, 0, 0, 0, 0},     // ISNA
+            {0, 0, 0, 0, 0, 0},     // MWL
+            {0, 0, 0, 0, 0, 0},     // Makkah
+            {0, 0, 0, 0, 0, 0},     // Egypt
+            {0, 0, 0, 0, 0, 0},     // Tehran
+            {0, -3, 3, 3, 3, 0},    // Dubai
+            {0, 0, 0, 0, 0, 0},     // Kuwait
+            {0, 0, 0, 0, 0, 0},     // Qatar
+            {0, 0, 1, 0, 0, 0},     // Singapore
+            {0, -7, 5, 4, 7, 0},    // Turkey
+            {0, 0, 5, 5, 5, 0},     // Oman
+            {0, 0, 5, 0, 0, 0},     // Morocco
     };
 
     private static final double RISE_SET_ANGLE = 0.833;
@@ -45,6 +72,11 @@ public class PrayerTimes {
         }
         // high latitude fallback (middle of night)
         if (Math.abs(lat) > 48) adjustHighLats(t, p);
+        // method-specific minutes (Dubai, Turkey, Oman, Morocco…)
+        if (method >= 0 && method < ADJ.length) {
+            int[] a = ADJ[method];
+            for (int i = 0; i < 6; i++) t[i] = fixHour(t[i] + a[i] / 60.0);
+        }
         // user tuning
         if (tuneMin != null)
             for (int i = 0; i < Math.min(7, tuneMin.length); i++)

@@ -23,7 +23,7 @@ public class DashboardView extends LinearLayout {
     private TextView elapsedView, weatherView, phaseNameView;
     private LinearLayout ramadanCard;
     private MoonView moonView;
-    private TextView eventView;
+    private TextView eventView, fridayView;
     private PrayerTimelineView timeline;
     /** Today's six timeline node times (Fajr..Isha) in millis. */
     private final long[] nodeMs = new long[6];
@@ -39,9 +39,6 @@ public class DashboardView extends LinearLayout {
     private int weatherKind = Weather.CLEAR;
     private long lastWeatherMs;
     private long phaseStartMs;
-
-    private static final SimpleDateFormat CLOCK_FMT =
-            new SimpleDateFormat("hh:mm:ss a", Locale.US);
 
     public int phasePrayer() { return phasePrayer; }
     public float phaseProgress() { return phaseProgress; }
@@ -87,6 +84,12 @@ public class DashboardView extends LinearLayout {
         eventView.setGravity(Gravity.CENTER);
         Ui.margin(eventView, 0, Ui.dp(ctx(), 4), 0, 0);
         addView(eventView);
+
+        fridayView = Ui.label(ctx(), "", 19, Ui.GOLD_BRIGHT);
+        fridayView.setTypeface(fridayView.getTypeface(), android.graphics.Typeface.BOLD);
+        fridayView.setGravity(Gravity.CENTER);
+        Ui.margin(fridayView, 0, Ui.dp(ctx(), 4), 0, 0);
+        addView(fridayView);
 
         clockView = Ui.label(ctx(), "--:--:--", 54, Ui.TEXT);
         clockView.setTypeface(clockView.getTypeface(), android.graphics.Typeface.BOLD);
@@ -144,11 +147,12 @@ public class DashboardView extends LinearLayout {
         currentDay = PrayerCalc.dayKey(cal);
         Prefs p = new Prefs(c);
 
-        headerView.setText("🕌 مواقيت الصلاة - " + p.cityName().toUpperCase());
-        String dateLine = String.format("%1$tA, %1$tB %1$te, %1$tY", cal)
-                + "  ·  " + PrayerCalc.hijriDate();
+        headerView.setText(Lang.t("🕌 Prayer times") + " - "
+                + (Lang.ar() ? Cities.nameAr(p.cityName()) : p.cityName().toUpperCase()));
+        String dateLine = Lang.fullDate(new Date())
+                + "  ·  " + PrayerCalc.hijriDate(c);
         if (p.dstMode() != Daylight.AUTO) {
-            dateLine += "  ·  " + (p.dstMode() == Daylight.ON
+            dateLine += "  ·  " + Lang.t(p.dstMode() == Daylight.ON
                     ? "Time +1h" : "Time −1h");
         }
         dateView.setText(dateLine);
@@ -190,17 +194,24 @@ public class DashboardView extends LinearLayout {
         winStartMs = wStart; winEndMs = wEnd;
         for (int i = 0; i < 6; i++) nodeMs[i] = PrayerCalc.toMillis(baseT[i], baseCal);
         timeline.setDayTimes(nodeMs, wStart, wEnd);
+        String[] names = new String[6];
+        for (int i = 0; i < 6; i++) {
+            names[i] = (i == 2 && PrayerCalc.isJumuah(c, nowMs))
+                    ? Lang.t("Jumu'ah") : Lang.prayer(i);
+        }
+        timeline.setNames(names);
         updateForecasts();
 
-        boolean ramadan = PrayerCalc.isRamadan();
+        boolean ramadan = PrayerCalc.isRamadan(c);
         ramadanCard.setVisibility(ramadan ? View.VISIBLE : View.GONE);
 
-        String ev = IslamicEvents.displayText(IslamicEvents.next());
+        String ev = IslamicEvents.displayText(IslamicEvents.next(), c);
         eventView.setText(ev);
         eventView.setVisibility(ev.isEmpty() ? View.GONE : View.VISIBLE);
+        updateFridayCard(c);
 
         lastWeatherMs = 0; // refresh weather right away on day/city change
-        phaseNameView.setText(PrayerCalc.MOON_NAMES[PrayerCalc.moonPhase()]);
+        phaseNameView.setText(Lang.t(PrayerCalc.MOON_NAMES[PrayerCalc.moonPhase()]));
         moonView.invalidate();
     }
 
@@ -240,15 +251,21 @@ public class DashboardView extends LinearLayout {
     /** "⏳ Dhuhr began 01:05 ago" — from the phase computed by updatePhase(). */
     private String elapsedText() {
         long mins = (System.currentTimeMillis() - phaseStartMs) / 60000;
-        String when = mins < 1 ? "just started"
+        String when = mins < 1 ? Lang.t("just started")
                 : "began " + formatHM(mins * 60000) + " ago";
-        return "⏳ " + PrayerCalc.NAMES[phasePrayer] + " " + when;
+        return Lang.t("⏳ " + PrayerCalc.name(ctx(), phasePrayer) + " " + when);
     }
 
     /** HH:MM, zero-padded ("00:32", "01:05"). */
     private static String formatHM(long ms) {
         long m = Math.max(0, ms / 60000);
-        return String.format(Locale.US, "%02d:%02d", m / 60, m % 60);
+        return Lang.num(String.format(Locale.US, "%02d:%02d", m / 60, m % 60));
+    }
+
+    private void updateFridayCard(Context c) {
+        boolean show = PrayerCalc.isKahfTime(c, System.currentTimeMillis());
+        fridayView.setText(Lang.t("🕌 Jumu'ah — read Surat al-Kahf"));
+        fridayView.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
     /** Per-prayer forecast under each timeline node (from cached hourly data). */
@@ -273,8 +290,8 @@ public class DashboardView extends LinearLayout {
             weatherKind = info.kind;
             int mi = PrayerCalc.moonPhase();
             weatherView.post(() -> {
-                weatherView.setText(info.text);
-                phaseNameView.setText(PrayerCalc.MOON_NAMES[mi]);
+                weatherView.setText(Lang.t(info.text));
+                phaseNameView.setText(Lang.t(PrayerCalc.MOON_NAMES[mi]));
                 moonView.invalidate();
                 updateForecasts();
             });
@@ -294,7 +311,7 @@ public class DashboardView extends LinearLayout {
                 refreshDay();
                 return;
             }
-            clockView.setText(CLOCK_FMT.format(new Date()));
+            clockView.setText(Lang.clock(new Date(), true));
 
             Context ctx = ctx();
             long now = System.currentTimeMillis();
@@ -308,26 +325,27 @@ public class DashboardView extends LinearLayout {
             timeline.setNow(now, next6);
 
             // next-prayer pill: "🕌 Isha in 00:32", plus the elapsed current prayer
-            countdownView.setText("🕌 " + PrayerCalc.NAMES[np.prayer]
-                    + " in " + formatHM(np.atMillis - now));
+            countdownView.setText(Lang.t("🕌 " + PrayerCalc.name(ctx, np.prayer)
+                    + " in " + formatHM(np.atMillis - now)));
 
             updatePhase(now);
             elapsedView.setText(elapsedText());
             elapsedView.setTextColor(0xFFB0BEC5);
+            updateFridayCard(ctx);
 
             updateWeather(ctx, now);
 
-            if (PrayerCalc.isRamadan() && todayTimes != null) {
+            if (PrayerCalc.isRamadan(ctx) && todayTimes != null) {
                 long fajr = PrayerCalc.toMillis(todayTimes[0], c);
                 long maghrib = PrayerCalc.toMillis(todayTimes[4], c);
                 ramadanCard.setVisibility(View.VISIBLE);
-                ramadanView.setText(now < fajr
-                        ? "🌙 Suhoor ends " + PrayerCalc.formatTime(todayTimes[0])
+                ramadanView.setText(Lang.t(now < fajr
+                        ? "🌙 Suhoor ends " + PrayerCalc.formatTime(ctx, todayTimes[0])
                                 + " · in " + formatHM(fajr - now)
                         : now < maghrib
-                                ? "🌙 Iftar " + PrayerCalc.formatTime(todayTimes[4])
+                                ? "🌙 Iftar " + PrayerCalc.formatTime(ctx, todayTimes[4])
                                         + " · in " + formatHM(maghrib - now)
-                                : "🌙 Iftar time — تقبل الله");
+                                : "🌙 Iftar time — تقبل الله"));
             } else {
                 ramadanCard.setVisibility(View.GONE);
             }

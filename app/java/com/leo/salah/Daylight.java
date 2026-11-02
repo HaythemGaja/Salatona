@@ -58,6 +58,12 @@ public final class Daylight {
         int mode = new Prefs(c).dstMode();
         String zone = ZoneId.systemDefault().getId();
         String off = offsetLabel(currentOffsetHours(mode));
+        if (Lang.ar()) {
+            if (mode == ON) return zone + " · متقدّم ساعة · " + off;
+            if (mode == OFF) return zone + " · متأخر ساعة · " + off;
+            return zone + (deviceDstNow()
+                    ? " · التوقيت الصيفي مفعّل · " : " · التوقيت القياسي · ") + off;
+        }
         if (mode == ON) return zone + " · shifted +1 hour · " + off;
         if (mode == OFF) return zone + " · shifted −1 hour · " + off;
         return zone + (deviceDstNow()

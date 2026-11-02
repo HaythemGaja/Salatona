@@ -61,7 +61,8 @@ public class AthanScheduler {
 
         // ---- gentle reminders for this day ----
         // taraweeh: 20 min after Isha, only in Ramadan and only if athan is on for Isha
-        if (dayOffset == 0 && p.taraweeh() && p.athanOn(4) && isRamadanDay(day)) {
+        if (dayOffset == 0 && p.taraweeh() && p.athanOn(4)
+                && isRamadanDay(day, p.hijriOffset())) {
             long isha = PrayerCalc.toMillis(t[PrayerCalc.TIME_IDX[4]], day);
             long at = isha + 20 * 60_000L;
             if (at > now + 30_000)
@@ -71,13 +72,14 @@ public class AthanScheduler {
     }
 
     /** True if the given calendar day falls in Ramadan (Hijri month 9). */
-    private static boolean isRamadanDay(Calendar day) {
+    private static boolean isRamadanDay(Calendar day, int hijriOffset) {
         try {
             java.time.LocalDate today = java.time.LocalDate.now();
             java.time.LocalDate target = java.time.LocalDate.of(day.get(Calendar.YEAR),
                     day.get(Calendar.MONTH) + 1, day.get(Calendar.DAY_OF_MONTH));
             long diff = java.time.temporal.ChronoUnit.DAYS.between(today, target);
             java.time.chrono.HijrahDate hd = java.time.chrono.HijrahDate.now()
+                    .plus(hijriOffset, java.time.temporal.ChronoUnit.DAYS)
                     .plus(diff, java.time.temporal.ChronoUnit.DAYS);
             return hd.get(java.time.temporal.ChronoField.MONTH_OF_YEAR) == 9;
         } catch (Exception e) {

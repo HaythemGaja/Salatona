@@ -8,7 +8,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 /** Complete duas & adhkar: after prayer, morning, and night. */
-public class DuasActivity extends Activity {
+public class DuasActivity extends BaseActivity {
 
     private static final String[] CATS = {
             "🤲 After Salah",
@@ -211,7 +211,8 @@ public class DuasActivity extends Activity {
         root.addView(title);
 
         for (int c = 0; c < CATS.length; c++) {
-            TextView sec = Ui.label(this, CATS[c] + "  (" + DUAS[c].length + ")", 24, Ui.GOLD_BRIGHT);
+            TextView sec = Ui.label(this, Lang.t(CATS[c]) + "  ("
+                    + Lang.num(String.valueOf(DUAS[c].length)) + ")", 24, Ui.GOLD_BRIGHT);
             sec.setTypeface(sec.getTypeface(), android.graphics.Typeface.BOLD);
             Ui.margin(sec, 0, Ui.dp(this, c == 0 ? 16 : 32), 0, 0);
             root.addView(sec);
@@ -229,8 +230,12 @@ public class DuasActivity extends Activity {
 
     private LinearLayout duaCard(String[] d) {
         LinearLayout card = Ui.card(this);
+        card.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
         Ui.margin(card, 0, Ui.dp(this, 16), 0, 0);
         TextView t = Ui.label(this, d[0], 20, Ui.GOLD);
+        t.setGravity(Lang.ar() ? Gravity.RIGHT : Gravity.LEFT);
         t.setTypeface(t.getTypeface(), android.graphics.Typeface.BOLD);
         card.addView(t);
         TextView ar = Ui.label(this, d[1], 26, Ui.TEXT);

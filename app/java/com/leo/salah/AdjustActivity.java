@@ -9,7 +9,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 /** Per-prayer minute fine-tuning (-120..+120). */
-public class AdjustActivity extends Activity {
+public class AdjustActivity extends BaseActivity {
 
     private static final int[] IDX = {0, 1, 2, 3, 4, 5};
     private static final String[] NAMES = {"Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"};
@@ -56,9 +56,12 @@ public class AdjustActivity extends Activity {
             final int ti = IDX[k];
             LinearLayout row = Ui.card(this);
             row.setPadding(Ui.dp(this, 20), Ui.dp(this, 12), Ui.dp(this, 20), Ui.dp(this, 12));
+            row.setLayoutParams(new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT));
             Ui.margin(row, 0, 0, 0, Ui.dp(this, 8));
             LinearLayout inner = Ui.hrow(this);
-            TextView name = Ui.label(this, NAMES[k], 20, Ui.TEXT);
+            TextView name = Ui.label(this, Lang.prayer(k), 20, Ui.TEXT);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
                     LinearLayout.LayoutParams.WRAP_CONTENT, 1);
             inner.addView(name, lp);
@@ -79,11 +82,12 @@ public class AdjustActivity extends Activity {
             row.addView(inner);
             list.addView(row);
         }
+        Lang.localize(list);
     }
 
     private String fmt(int m) {
-        if (m == 0) return "±0 min";
-        return (m > 0 ? "+" : "−") + Math.abs(m) + " min";
+        if (m == 0) return Lang.t("±0 min");
+        return Lang.num((m > 0 ? "+" : "−") + Math.abs(m) + " min");
     }
 
     private void changed() {

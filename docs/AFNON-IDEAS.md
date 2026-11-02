@@ -6,24 +6,25 @@ Qibla, Ramadan and Friday modes, Arabic-first UI, plain Java/Views, D-pad
 only. It is a different product (a launcher), not a drop-in library, but
 several of its ideas fit Salatona with little or no new dependency.
 
-This note ranks them by value for Salatona's audience and by effort. The
-"where" links point at Afnon's source on GitHub; the Salatona links are
-relative to this repo.
+This note started as a priority list. **v2.0 implements items 1–8 and 10,
+plus the Arabic-announcement part of 9.** The sections below keep the original
+rationale and are useful for future work; the recorded adhan voices remain
+asset-limited.
 
-## Quick priority table
+## Status in v2.0
 
-| # | Idea | Value | Effort | Risk |
-|---|------|-------|--------|------|
-| 1 | Hijri date offset (±2 days) | High | Small | Low |
-| 2 | Friday / Jumu'ah mode + Surat al-Kahf reminder | High | Medium | Low |
-| 3 | Arabic UI, RTL, Arabic-Indic digits | High | Medium–high | Low |
-| 4 | Quran radio (stations + reciters) | High | High | Medium (streams, licensing) |
-| 5 | Unmute the TV for the athan, then restore it | Medium | Tiny | Low |
-| 6 | Follow the TV's 12/24-hour setting | Medium | Tiny | Low |
-| 7 | Qibla "room mode" (which way does the TV face) | Medium | Small | Low |
-| 8 | More calculation methods + per-city defaults | Medium | Small–medium | Low |
-| 9 | More adhan voices / Arabic announcements | Medium | Medium | Licensing |
-| 10 | Night mode palette | Low–medium | Small | Low |
+| # | Idea | Status | Notes |
+|---|------|--------|------|
+| 1 | Hijri date offset (±2 days) | ✅ Done | Umm al-Qura everywhere, ±2-day setting, shared by dashboard/timetable/events/Taraweeh |
+| 2 | Friday / Jumu'ah + Surat al-Kahf | ✅ Done | Dhuhr → Jumu'ah from Fajr to Maghrib; Kahf card from Thursday Maghrib |
+| 3 | Arabic UI, RTL, Arabic-Indic digits | ✅ Done | Language row, RTL, digits setting, Arabic dates/Hijri/months |
+| 4 | Quran radio | ✅ Done | 19 stations/reciters; foreground player pauses for adhan |
+| 5 | Unmute for the athan, restore after | ✅ Done | Unmutes a muted stream and restores mute/volume |
+| 6 | Follow the TV's 12/24-hour setting | ✅ Done | Also has 12h/24h overrides in Display |
+| 7 | Qibla room mode | ✅ Done | TV-facing row; “behind-right, 136° from north” |
+| 8 | More calculation methods + city defaults | ✅ Done | Dubai, Kuwait, Qatar, Singapore, Turkey, Oman, Morocco; per-country defaults |
+| 9 | More voices / Arabic announcements | ◑ Partial | Arabic TTS announcement added (English fallback); new recordings need licensed audio |
+| 10 | Night mode palette | ✅ Done | Warm/dim palette switch in Display |
 
 ---
 

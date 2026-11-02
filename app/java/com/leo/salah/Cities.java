@@ -231,4 +231,120 @@ public class Cities {
     public static String country(String e) { return e.split("\\|")[1]; }
     public static double lat(String e) { return Double.parseDouble(e.split("\\|")[2]); }
     public static double lng(String e) { return Double.parseDouble(e.split("\\|")[3]); }
+
+    /** The method most mosques in that country follow; picked when a city changes. */
+    public static int defaultMethod(String country) {
+        switch (country) {
+            case "Saudi Arabia": return PrayerTimes.MAKKAH;
+            case "Egypt": return PrayerTimes.EGYPT;
+            case "UAE": return PrayerTimes.DUBAI;
+            case "Kuwait": return PrayerTimes.KUWAIT;
+            case "Qatar": return PrayerTimes.QATAR;
+            case "Singapore": return PrayerTimes.SINGAPORE;
+            case "Turkey": return PrayerTimes.TURKEY;
+            case "Oman": return PrayerTimes.OMAN;
+            case "Morocco": return PrayerTimes.MOROCCO;
+            case "Pakistan": case "India": case "Bangladesh":
+            case "Afghanistan": return PrayerTimes.KARACHI;
+            case "USA": case "Canada": return PrayerTimes.ISNA;
+            case "Iran": return PrayerTimes.JAFARI;
+            default: return PrayerTimes.MWL;
+        }
+    }
+
+    /** Hanafi Asr for the countries where it is the usual school. */
+    public static int defaultAsr(String country) {
+        switch (country) {
+            case "Pakistan": case "India": case "Bangladesh":
+            case "Afghanistan": return 1;
+            default: return 0;
+        }
+    }
+
+    /** Arabic display name for the common cities; falls back to the English name. */
+    public static String nameAr(String e) {
+        String n = name(e);
+        switch (n) {
+            case "Tripoli": return "طرابلس";
+            case "Benghazi": return "بنغازي";
+            case "Misrata": return "مصراتة";
+            case "Al Bayda": return "البيضاء";
+            case "Zawiya": return "الزاوية";
+            case "Tobruk": return "طبرق";
+            case "Zliten": return "زليتن";
+            case "Khoms": return "الخمس";
+            case "Ajdabiya": return "أجدابيا";
+            case "Derna": return "درنة";
+            case "Sirte": return "سرت";
+            case "Sabha": return "سبها";
+            case "Murzuq": return "مرزق";
+            case "Ubari": return "أوباري";
+            case "Ghadames": return "غدامس";
+            case "Kufra": return "الكفرة";
+            case "Gharyan": return "غريان";
+            case "Tarhuna": return "ترهونة";
+            case "Bani Walid": return "بني وليد";
+            case "Yafran": return "يفرن";
+            case "Cairo": return "القاهرة";
+            case "Alexandria": return "الإسكندرية";
+            case "Giza": return "الجيزة";
+            case "Makkah": return "مكة المكرمة";
+            case "Madinah": return "المدينة المنورة";
+            case "Riyadh": return "الرياض";
+            case "Jeddah": return "جدة";
+            case "Dubai": return "دبي";
+            case "Abu Dhabi": return "أبو ظبي";
+            case "Doha": return "الدوحة";
+            case "Kuwait City": return "الكويت";
+            case "Amman": return "عمّان";
+            case "Jerusalem": return "القدس";
+            case "Beirut": return "بيروت";
+            case "Damascus": return "دمشق";
+            case "Baghdad": return "بغداد";
+            case "Tunis": return "تونس";
+            case "Algiers": return "الجزائر";
+            case "Casablanca": return "الدار البيضاء";
+            case "Rabat": return "الرباط";
+            case "Istanbul": return "إسطنبول";
+            default: return n;
+        }
+    }
+
+    /** Arabic country name for the common countries. */
+    public static String countryAr(String country) {
+        switch (country) {
+            case "Libya": return "ليبيا";
+            case "Egypt": return "مصر";
+            case "Saudi Arabia": return "السعودية";
+            case "UAE": return "الإمارات";
+            case "Qatar": return "قطر";
+            case "Kuwait": return "الكويت";
+            case "Bahrain": return "البحرين";
+            case "Oman": return "عُمان";
+            case "Jordan": return "الأردن";
+            case "Palestine": return "فلسطين";
+            case "Lebanon": return "لبنان";
+            case "Syria": return "سوريا";
+            case "Iraq": return "العراق";
+            case "Yemen": return "اليمن";
+            case "Sudan": return "السودان";
+            case "Tunisia": return "تونس";
+            case "Algeria": return "الجزائر";
+            case "Morocco": return "المغرب";
+            case "Turkey": return "تركيا";
+            case "Iran": return "إيران";
+            case "Pakistan": return "باكستان";
+            case "India": return "الهند";
+            case "Bangladesh": return "بنغلاديش";
+            case "Indonesia": return "إندونيسيا";
+            case "Malaysia": return "ماليزيا";
+            case "USA": return "الولايات المتحدة";
+            case "UK": return "المملكة المتحدة";
+            case "France": return "فرنسا";
+            case "Germany": return "ألمانيا";
+            case "Canada": return "كندا";
+            case "Australia": return "أستراليا";
+            default: return country;
+        }
+    }
 }

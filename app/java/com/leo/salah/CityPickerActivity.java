@@ -19,7 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Searchable city list + manual coordinates entry. */
-public class CityPickerActivity extends Activity {
+public class CityPickerActivity extends BaseActivity {
 
     private ArrayAdapter<String> adapter;
     private final List<String> shown = new ArrayList<>();
@@ -38,13 +38,13 @@ public class CityPickerActivity extends Activity {
         title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
         root.addView(title);
 
-        Button custom = Ui.bigButton(this, "📍 Enter coordinates manually");
+        Button custom = Ui.bigButton(this, Lang.t("📍 Enter coordinates manually"));
         Ui.margin(custom, 0, Ui.dp(this, 16), 0, Ui.dp(this, 8));
         custom.setOnClickListener(v -> customDialog());
         root.addView(custom);
 
         EditText search = new EditText(this);
-        search.setHint("Search city…");
+        search.setHint(Lang.t("Search city…"));
         search.setTextSize(20);
         search.setTextColor(Ui.TEXT);
         search.setHintTextColor(Ui.DIM);
@@ -80,10 +80,14 @@ public class CityPickerActivity extends Activity {
 
         lv.setOnItemClickListener((AdapterView<?> parent, View view, int pos, long id) -> {
             String e = shownEntries.get(pos);
-            new Prefs(this).setCity(Cities.name(e), Cities.country(e),
-                    Cities.lat(e), Cities.lng(e));
+            Prefs p = new Prefs(this);
+            p.setCity(Cities.name(e), Cities.country(e), Cities.lat(e), Cities.lng(e));
+            p.setMethod(Cities.defaultMethod(Cities.country(e)));
+            p.setAsr(Cities.defaultAsr(Cities.country(e)));
             try { AthanScheduler.scheduleAll(this); } catch (Exception ignored) {}
-            Toast.makeText(this, "City set: " + Cities.name(e) + " ✓", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, Lang.t("City set: "
+                    + Lang.city(Cities.name(e), Cities.country(e)) + " ✓"),
+                    Toast.LENGTH_SHORT).show();
             finish();
         });
 
@@ -96,8 +100,10 @@ public class CityPickerActivity extends Activity {
         String ql = q.toLowerCase().trim();
         for (String e : Cities.ALL) {
             if (ql.isEmpty() || Cities.name(e).toLowerCase().contains(ql)
-                    || Cities.country(e).toLowerCase().contains(ql)) {
-                shown.add(Cities.name(e) + ", " + Cities.country(e));
+                    || Cities.country(e).toLowerCase().contains(ql)
+                    || Cities.nameAr(e).contains(ql)
+                    || Cities.countryAr(Cities.country(e)).contains(ql)) {
+                shown.add(Lang.city(Cities.name(e), Cities.country(e)));
                 shownEntries.add(e);
             }
         }
@@ -109,34 +115,34 @@ public class CityPickerActivity extends Activity {
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(Ui.dp(this, 8), Ui.dp(this, 8), Ui.dp(this, 8), Ui.dp(this, 8));
         final EditText lat = new EditText(this);
-        lat.setHint("Latitude  (e.g. 32.90)");
+        lat.setHint(Lang.t("Latitude  (e.g. 32.90)"));
         lat.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
                 | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
                 | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
         final EditText lng = new EditText(this);
-        lng.setHint("Longitude (e.g. 13.18)");
+        lng.setHint(Lang.t("Longitude (e.g. 13.18)"));
         lng.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
                 | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
                 | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
         box.addView(lat);
         box.addView(lng);
         new AlertDialog.Builder(this)
-                .setTitle("Custom location")
+                .setTitle(Lang.t("Custom location"))
                 .setView(box)
-                .setPositiveButton("Save", (d, w) -> {
+                .setPositiveButton(Lang.t("Save"), (d, w) -> {
                     try {
                         double la = Double.parseDouble(lat.getText().toString().trim());
                         double ln = Double.parseDouble(lng.getText().toString().trim());
                         if (Math.abs(la) > 90 || Math.abs(ln) > 180) throw new Exception();
                         new Prefs(this).setCity("Custom", la + ", " + ln, la, ln);
                         try { AthanScheduler.scheduleAll(this); } catch (Exception ignored) {}
-                        Toast.makeText(this, "Location saved ✓", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, Lang.t("Location saved ✓"), Toast.LENGTH_SHORT).show();
                         finish();
                     } catch (Exception e) {
-                        Toast.makeText(this, "Enter valid coordinates", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, Lang.t("Enter valid coordinates"), Toast.LENGTH_SHORT).show();
                     }
                 })
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(Lang.t("Cancel"), null)
                 .show();
     }
 }

@@ -55,13 +55,19 @@ public final class Lang {
 
     /** Arabic-Indic digits when enabled. */
     public static String num(String s) {
-        if (!eastern || s == null) return s;
+        if (s == null) return null;
         StringBuilder b = null;
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
-            if (c >= '0' && c <= '9') {
-                if (b == null) b = new StringBuilder(s);
-                b.setCharAt(i, EASTERN[c - '0']);
+            int n = c >= '0' && c <= '9' ? c - '0'
+                    : c >= '٠' && c <= '٩' ? c - '٠'
+                    : c >= '۰' && c <= '۹' ? c - '۰' : -1;
+            if (n >= 0) {
+                char out = eastern ? EASTERN[n] : (char) ('0' + n);
+                if (out != c) {
+                    if (b == null) b = new StringBuilder(s);
+                    b.setCharAt(i, out);
+                }
             }
         }
         return b == null ? s : b.toString();
@@ -201,7 +207,7 @@ public final class Lang {
     }
 
     private static Matcher p(String regex, String s) {
-        Matcher m = Pattern.compile(regex).matcher(s);
+        Matcher m = Pattern.compile(regex, Pattern.UNICODE_CHARACTER_CLASS).matcher(s);
         return m.matches() ? m : null;
     }
 
@@ -231,6 +237,8 @@ public final class Lang {
         }
         if (v instanceof TextView) {
             TextView tv = (TextView) v;
+            tv.setTextLocale(locale());
+            if (ar) tv.setLetterSpacing(0f);
             CharSequence c = tv.getText();
             if (c != null && c.length() > 0) {
                 String s = t(c.toString());
@@ -249,6 +257,45 @@ public final class Lang {
             "رجب", "شعبان", "رمضان", "شوال", "ذو القعدة", "ذو الحجة"};
 
     static {
+        put("Back to dashboard", "العودة إلى الشاشة الرئيسية");
+        put("Optional fasting details and Taraweeh reminder", "تفاصيل الصيام الاختيارية وتذكير التراويح");
+        put("Arabic, English, numbers and clock format", "العربية والإنجليزية والأرقام وصيغة الساعة");
+        put("Expanded Ramadan mode", "وضع رمضان الموسّع");
+        put("RAMADAN DISPLAY", "عرض رمضان");
+        put("REMINDERS", "التذكيرات");
+        put("APPEARANCE", "المظهر");
+        put("Off by default. During Ramadan, adds fasting duration, daylight fasting progress and the next Suhoor time to the existing card.", "متوقّف افتراضياً. يضيف إلى بطاقة رمضان مدة الصيام ومؤشر تقدّمه وموعد انتهاء السحور القادم.");
+        put("Suhoor ends at Fajr. The Hijri date adjustment in Prayer times also applies here.", "ينتهي وقت السحور عند الفجر. يُطبَّق هنا أيضاً تعديل التاريخ الهجري من إعدادات مواقيت الصلاة.");
+        put("Language changes immediately. Your place in settings is preserved.", "تُطبَّق اللغة فوراً مع الاحتفاظ بموضعك في الإعدادات.");
+        put("Fasting duration", "مدة الصيام");
+        put("Fasting progress", "تقدّم الصيام");
+        put("Next Suhoor ends", "ينتهي السحور القادم");
+        put("in", "بعد");
+        put("Cancel", "إلغاء");
+        put("Athan & alerts", "الأذان والتنبيهات");
+        put("Screen saver & appearance", "شاشة التوقف والمظهر");
+        put("Language & time", "اللغة والوقت");
+        put("Permissions & reliability", "الأذونات والتشغيل");
+        put("↑ ↓  Browse  ·  OK  Open\nBack  Return", "↑ ↓  تنقّل  ·  موافق  فتح\nرجوع  عودة");
+        put("↑ ↓ Browse  ·  OK Change  ·  Back Return", "↑ ↓ تنقّل  ·  موافق تعديل  ·  رجوع عودة");
+        put("Advanced prayer settings", "إعدادات الصلاة المتقدمة");
+        put("Calculation, Asr and time adjustments", "طريقة الحساب والعصر وتعديل المواقيت");
+        put("Adjust only if your local moon-sighting date differs.", "عدّل التاريخ فقط إذا اختلف عن رؤية الهلال في منطقتك.");
+        put("ADVANCED", "إعدادات متقدمة");
+        put("TIME ADJUSTMENTS", "تعديل المواقيت");
+        put("PRAYER ALERT", "تنبيه الصلاة");
+        put("Enable athan", "تفعيل الأذان");
+        put("Same as global uses the main Athan voice selection.", "اختيار «مثل الصوت العام» يستخدم صوت الأذان الرئيسي.");
+        put("Back to Athan & alerts", "العودة إلى الأذان والتنبيهات");
+        put("INDIVIDUAL PRAYERS", "إعدادات كل صلاة");
+        put("About prayer calculations", "حول حساب مواقيت الصلاة");
+        put("Back to prayer times", "العودة إلى مواقيت الصلاة");
+        put("Help", "مساعدة");
+        put("Close", "إغلاق");
+        put("Apply", "تطبيق");
+        put("HELP", "المساعدة");
+        put("Screen saver setup help", "المساعدة في إعداد شاشة التوقف");
+        put("Choose a prayer to customize its sound and alert.", "اختر صلاة لتخصيص صوت الأذان والتنبيه الخاص بها.");
         // ---------------- general / settings ----------------
         put("Settings", "الإعدادات");
         put("Prayer times", "مواقيت الصلاة");

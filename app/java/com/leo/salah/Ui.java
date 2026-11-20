@@ -223,6 +223,7 @@ public class Ui {
 
     public static TextView label(Context c, String text, int sizeSp, int color) {
         TextView t = new TextView(c);
+        t.setTextLocale(Lang.locale());
         t.setText(text);
         t.setTextSize(sizeSp);
         t.setTextColor(color);

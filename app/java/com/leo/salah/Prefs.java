@@ -174,6 +174,11 @@ public class Prefs {
     }
 
     // ---- ramadan + adhkar reminders ----
+    /** Extra screensaver information is opt-in; the original card stays the default. */
+    public boolean expandedRamadan() { return s.getBoolean("expanded_ramadan", false); }
+    public void setExpandedRamadan(boolean b) {
+        s.edit().putBoolean("expanded_ramadan", b).apply();
+    }
     public boolean taraweeh() { return s.getBoolean("taraweeh", true); }
     public void setTaraweeh(boolean b) { s.edit().putBoolean("taraweeh", b).apply(); }
     public boolean adhkarMorning() { return s.getBoolean("adhkar_morning", true); }

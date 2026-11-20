@@ -22,6 +22,8 @@ public class DashboardView extends LinearLayout {
     private TextView headerView, dateView, ramadanView, clockView, countdownView;
     private TextView elapsedView, weatherView, phaseNameView;
     private LinearLayout ramadanCard;
+    private TextView ramadanDetails;
+    private android.widget.ProgressBar fastingProgress;
     private MoonView moonView;
     private TextView eventView, fridayView;
     private PrayerTimelineView timeline;
@@ -32,6 +34,8 @@ public class DashboardView extends LinearLayout {
     private double[] todayTimes;
     private String currentDay = "";
     private long tomorrowFajrMs, yesterdayIshaMs;
+    private double tomorrowFajrTime;
+    private boolean tomorrowIsRamadan;
 
     // sky-driving state, read by MainActivity / SalahDream tickers
     private int phasePrayer = 4;
@@ -48,6 +52,7 @@ public class DashboardView extends LinearLayout {
         super(c);
         setOrientation(VERTICAL);
         setGravity(Gravity.CENTER_HORIZONTAL);
+        setLayoutDirection(Lang.rtl() ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
         build();
     }
 
@@ -66,7 +71,7 @@ public class DashboardView extends LinearLayout {
 
         // Ramadan mode card: prominent Suhoor/Iftar countdown, only in Ramadan
         ramadanCard = new LinearLayout(ctx());
-        ramadanCard.setOrientation(HORIZONTAL);
+        ramadanCard.setOrientation(VERTICAL);
         ramadanCard.setGravity(Gravity.CENTER);
         ramadanCard.setBackground(Ui.roundBgStroke(0xFF4A3A10, Ui.GOLD,
                 Ui.dp(ctx(), 2), Ui.dp(ctx(), 18)));
@@ -77,6 +82,19 @@ public class DashboardView extends LinearLayout {
         ramadanView.setTypeface(ramadanView.getTypeface(), android.graphics.Typeface.BOLD);
         ramadanView.setGravity(Gravity.CENTER);
         ramadanCard.addView(ramadanView);
+        ramadanDetails = Ui.label(ctx(), "", 15, 0xFFE8DDBD);
+        ramadanDetails.setGravity(Gravity.CENTER);
+        ramadanDetails.setVisibility(View.GONE);
+        ramadanCard.addView(ramadanDetails);
+        fastingProgress = new android.widget.ProgressBar(ctx(), null,
+                android.R.attr.progressBarStyleHorizontal);
+        fastingProgress.setMax(1000);
+        fastingProgress.setProgressTintList(android.content.res.ColorStateList.valueOf(Ui.GOLD));
+        fastingProgress.setProgressBackgroundTintList(
+                android.content.res.ColorStateList.valueOf(0x554A3A10));
+        fastingProgress.setVisibility(View.GONE);
+        ramadanCard.addView(fastingProgress, new LayoutParams(
+                LayoutParams.MATCH_PARENT, Ui.dp(ctx(), 5)));
         addView(ramadanCard);
 
         eventView = Ui.label(ctx(), "", 19, Ui.GOLD_BRIGHT);
@@ -94,6 +112,8 @@ public class DashboardView extends LinearLayout {
         clockView = Ui.label(ctx(), "--:--:--", 54, Ui.TEXT);
         clockView.setTypeface(clockView.getTypeface(), android.graphics.Typeface.BOLD);
         clockView.setGravity(Gravity.CENTER);
+        clockView.setShadowLayer(Ui.dp(ctx(), 5), 0, Ui.dp(ctx(), 2), 0x99000000);
+        clockView.setTextDirection(View.TEXT_DIRECTION_LTR);
         Ui.margin(clockView, 0, Ui.dp(ctx(), 4), 0, 0);
         addView(clockView);
 
@@ -120,7 +140,8 @@ public class DashboardView extends LinearLayout {
         LinearLayout pill = new LinearLayout(ctx());
         pill.setOrientation(VERTICAL);
         pill.setGravity(Gravity.CENTER);
-        pill.setBackground(Ui.roundBg(0xCC060B2E, Ui.dp(ctx(), 20)));
+        pill.setBackground(Ui.roundBgStroke(0xCC060B2E, 0x557F91AB,
+                Ui.dp(ctx(), 1), Ui.dp(ctx(), 20)));
         int pp = Ui.dp(ctx(), 12);
         pill.setPadding(Ui.dp(ctx(), 32), pp, Ui.dp(ctx(), 32), pp);
         countdownView = Ui.label(ctx(), "", 26, Ui.GOLD_BRIGHT);
@@ -165,6 +186,10 @@ public class DashboardView extends LinearLayout {
         double[] tt = PrayerCalc.timesFor(c, tmr.get(Calendar.YEAR),
                 tmr.get(Calendar.MONTH) + 1, tmr.get(Calendar.DAY_OF_MONTH));
         tomorrowFajrMs = PrayerCalc.toMillis(tt[0], tmr);
+        tomorrowFajrTime = tt[0];
+        java.time.LocalDate todayDate = java.time.Instant.ofEpochMilli(cal.getTimeInMillis())
+                .atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+        tomorrowIsRamadan = RamadanWindow.tomorrowIsRamadan(todayDate, p.hijriOffset());
         Calendar yst = (Calendar) cal.clone();
         yst.add(Calendar.DATE, -1);
         double[] yt = PrayerCalc.timesFor(c, yst.get(Calendar.YEAR),
@@ -346,9 +371,41 @@ public class DashboardView extends LinearLayout {
                                 ? "🌙 Iftar " + PrayerCalc.formatTime(ctx, todayTimes[4])
                                         + " · in " + formatHM(maghrib - now)
                                 : "🌙 Iftar time — تقبل الله"));
+                updateExpandedRamadan(ctx, now, fajr, maghrib);
             } else {
                 ramadanCard.setVisibility(View.GONE);
             }
         } catch (Exception ignored) {}
+    }
+
+    /** Enrich the existing Ramadan card only when explicitly enabled. No new controls. */
+    private void updateExpandedRamadan(Context ctx, long now,
+                                       long fajr, long maghrib) {
+        boolean expanded = new Prefs(ctx).expandedRamadan();
+        ramadanDetails.setVisibility(expanded ? View.VISIBLE : View.GONE);
+        fastingProgress.setVisibility(expanded && RamadanWindow.isFasting(now, fajr, maghrib)
+                ? View.VISIBLE : View.GONE);
+        if (!expanded) return;
+        int[] hijri = PrayerCalc.hijriToday(ctx);
+        String details = Lang.t("Ramadan") + " " + Lang.num(Integer.toString(hijri[0]));
+        // Duration and progress use actual timestamps, including on a DST transition.
+        if (maghrib > fajr) {
+            details += " · " + Lang.t("Fasting duration") + " " + formatHM(maghrib - fajr);
+            if (RamadanWindow.isFasting(now, fajr, maghrib)) {
+                int progress = RamadanWindow.progress(now, fajr, maghrib);
+                fastingProgress.setVisibility(View.VISIBLE);
+                fastingProgress.setProgress(progress);
+                fastingProgress.setContentDescription(Lang.t("Fasting progress") + " "
+                        + Lang.num(Integer.toString(progress / 10)) + "%");
+            }
+        }
+        if (now >= maghrib) {
+            // Do not advertise a Ramadan fast for Shawwal 1.
+            if (tomorrowIsRamadan) {
+                details = Lang.t("Next Suhoor ends") + " " + PrayerCalc.formatTime(ctx, tomorrowFajrTime)
+                        + " · " + Lang.t("in") + " " + formatHM(tomorrowFajrMs - now);
+            }
+        }
+        ramadanDetails.setText(details);
     }
 }

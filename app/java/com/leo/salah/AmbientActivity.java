@@ -20,10 +20,17 @@ import android.widget.TextView;
 public class AmbientActivity extends BaseActivity {
 
     private DashboardView dashboard;
+    private SkyView sky;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable ticker = new Runnable() {
         @Override public void run() {
-            try { if (dashboard != null) dashboard.tick(); } catch (Exception ignored) {}
+            try {
+                if (dashboard != null) {
+                    dashboard.tick();
+                    sky.setPhase(dashboard.phasePrayer(), dashboard.phaseProgress());
+                    sky.setWeatherKind(dashboard.weatherKind());
+                }
+            } catch (Exception ignored) {}
             handler.postDelayed(this, 1000);
         }
     };
@@ -37,7 +44,8 @@ public class AmbientActivity extends BaseActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         FrameLayout frame = new FrameLayout(this);
-        frame.addView(new SkyView(this),
+        sky = new SkyView(this);
+        frame.addView(sky,
                 new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
                         FrameLayout.LayoutParams.MATCH_PARENT));
 
@@ -56,6 +64,7 @@ public class AmbientActivity extends BaseActivity {
                 FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
         hlp.bottomMargin = Ui.dp(this, 24);
         frame.addView(hint, hlp);
+        hint.postDelayed(() -> hint.animate().alpha(0f).setDuration(800).start(), 5000);
 
         setContentView(frame);
     }

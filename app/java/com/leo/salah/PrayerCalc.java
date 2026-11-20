@@ -132,7 +132,8 @@ public class PrayerCalc {
     public static String name(Context c, int prayerIdx) {
         if (prayerIdx == 1 && isJumuah(c, System.currentTimeMillis()))
             return Lang.t("Jumu'ah");
-        return Lang.prayer(prayerIdx);
+        return prayerIdx >= 0 && prayerIdx < TIME_IDX.length
+                ? Lang.prayer(TIME_IDX[prayerIdx]) : "";
     }
 
     /** True from Fajr-ish on Friday until that day's Maghrib. */
